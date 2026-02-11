@@ -30,6 +30,16 @@ from .audio_manager import (
     RepeatMode,
     SoundEffect,
 )
+from .scene import (
+    Background,
+    CameraAngle,
+    CameraSettings,
+    Overlay,
+    OverlayType,
+    Scene,
+    SceneManager,
+    get_scene_manager,
+)
 
 
 # Pipeline は循環参照を避けるため遅延インポート
@@ -104,4 +114,13 @@ __all__ = [
     "PlaybackState",
     "RepeatMode",
     "SoundEffect",
+    # Scene Manager
+    "Background",
+    "CameraAngle",
+    "CameraSettings",
+    "Overlay",
+    "OverlayType",
+    "Scene",
+    "SceneManager",
+    "get_scene_manager",
 ]

@@ -11,6 +11,7 @@ from .websocket import router as ws_router
 from .live import router as live_router
 from .obs import router as obs_router
 from .audio import router as audio_router
+from .scene import router as scene_router
 
 # アプリケーション作成
 app = FastAPI(
@@ -39,6 +40,9 @@ app.include_router(obs_router)
 
 # Audio ルーター登録
 app.include_router(audio_router)
+
+# Scene ルーター登録
+app.include_router(scene_router)
 
 
 @app.get("/")

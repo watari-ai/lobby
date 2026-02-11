@@ -248,7 +248,7 @@ lobby/
 - [ ] 3D（VRM）対応
 - [x] Twitch対応（TwitchChat + TwitchLiveMode）
 - [x] BGM/SE管理（AudioManager + REST API）
-- [ ] シーン管理
+- [x] シーン管理（SceneManager + REST API）
 
 ## 差別化ポイント
 

@@ -8,12 +8,13 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from .websocket import router as ws_router
+from .live import router as live_router
 
 # アプリケーション作成
 app = FastAPI(
     title="Lobby",
     description="AI VTuber配信・収録ソフト API",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 # CORS設定（開発用）
@@ -27,6 +28,9 @@ app.add_middleware(
 
 # WebSocket ルーター登録
 app.include_router(ws_router)
+
+# Live Mode ルーター登録
+app.include_router(live_router)
 
 
 @app.get("/")

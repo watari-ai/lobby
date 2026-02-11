@@ -238,9 +238,10 @@ lobby/
 - [x] 物理演算連携（目パチ、呼吸、重力・風設定）
 
 ### Phase 3: ライブ配信（1週間）
-- [ ] OpenClaw Gateway連携
+- [x] OpenClaw Gateway連携（OpenClawClient, LiveMode）
+- [x] ライブモードAPI（REST + WebSocket）
 - [ ] YouTubeコメント取得
-- [ ] リアルタイム応答
+- [ ] リアルタイム応答テスト
 - [ ] OBS出力
 
 ### Phase 4: 拡張機能

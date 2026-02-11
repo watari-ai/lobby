@@ -26,6 +26,7 @@ from .pipeline import (
 )
 from .tts import TTSClient, TTSConfig
 from .video import VideoComposer, VideoConfig, get_audio_duration_ms
+from .openclaw import OpenClawClient, OpenClawConfig, LOBBY_SYSTEM_PROMPT
 
 __all__ = [
     # TTS
@@ -58,4 +59,8 @@ __all__ = [
     "LineResult",
     "RecordingPipeline",
     "quick_record",
+    # OpenClaw
+    "OpenClawClient",
+    "OpenClawConfig",
+    "LOBBY_SYSTEM_PROMPT",
 ]

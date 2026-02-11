@@ -250,6 +250,14 @@ lobby/
 - [x] BGM/SE管理（AudioManager + REST API）
 - [x] シーン管理（SceneManager + REST API）
 
+### Phase 5: 字幕・アーカイブ
+- [x] 字幕生成（SRT/VTT出力、収録モード統合）
+- [ ] リアルタイム字幕（ライブモード）
+- [ ] 翻訳字幕（多言語対応）
+- [ ] 自動ハイライト検出
+- [ ] クリップ切り出し
+- [ ] サムネイル自動生成
+
 ## 差別化ポイント
 
 | 機能 | Open-LLM-VTuber | OBS + VTube Studio | **Lobby** |
@@ -295,4 +303,4 @@ pnpm run build      # プロダクションビルド
 
 ---
 
-*最終更新: 2026-02-12 06:35*
+*最終更新: 2026-02-12 07:35*

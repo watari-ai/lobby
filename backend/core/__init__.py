@@ -53,6 +53,13 @@ from .vrm import (
     get_vrm_controller,
     parse_vrm_glb,
 )
+from .subtitle import (
+    SubtitleEntry,
+    SubtitleFormat,
+    SubtitleGenerator,
+    SubtitleTrack,
+    generate_subtitles_from_recording,
+)
 
 
 # Pipeline は循環参照を避けるため遅延インポート
@@ -148,4 +155,10 @@ __all__ = [
     "VRMModel",
     "get_vrm_controller",
     "parse_vrm_glb",
+    # Subtitle
+    "SubtitleEntry",
+    "SubtitleFormat",
+    "SubtitleGenerator",
+    "SubtitleTrack",
+    "generate_subtitles_from_recording",
 ]

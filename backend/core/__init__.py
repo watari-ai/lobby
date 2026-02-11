@@ -10,6 +10,14 @@ from .avatar import (
     MouthShape,
 )
 from .emotion import Emotion, EmotionAnalyzer
+from .live2d import (
+    Live2DConfig,
+    Live2DExpression,
+    Live2DFrame,
+    Live2DLipsyncAnalyzer,
+    Live2DModel,
+    Live2DParameters,
+)
 from .pipeline import (
     LineResult,
     PipelineConfig,
@@ -26,7 +34,7 @@ __all__ = [
     # Emotion
     "EmotionAnalyzer",
     "Emotion",
-    # Avatar
+    # Avatar (PNG)
     "MouthShape",
     "Expression",
     "AvatarFrame",
@@ -34,6 +42,13 @@ __all__ = [
     "LipsyncConfig",
     "LipsyncAnalyzer",
     "AvatarRenderer",
+    # Avatar (Live2D)
+    "Live2DConfig",
+    "Live2DExpression",
+    "Live2DFrame",
+    "Live2DLipsyncAnalyzer",
+    "Live2DModel",
+    "Live2DParameters",
     # Video
     "VideoComposer",
     "VideoConfig",

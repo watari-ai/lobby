@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import Live2DViewer from './components/Live2DViewer';
 import ControlPanel from './components/ControlPanel';
+import SubtitleDisplay from './components/SubtitleDisplay';
 import { useLive2DWebSocket } from './hooks/useLive2DWebSocket';
 
 const EXPRESSIONS = ['neutral', 'happy', 'sad', 'excited', 'surprised', 'angry'] as const;
@@ -47,6 +48,7 @@ function App() {
       <main className="main">
         <div className="canvas-container">
           <Live2DViewer params={params} physics={physics} />
+          <SubtitleDisplay position="bottom" backgroundOpacity={0.7} />
         </div>
         
         <aside className="sidebar">

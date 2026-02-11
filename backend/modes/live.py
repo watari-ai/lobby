@@ -17,6 +17,7 @@ from ..core.openclaw import OpenClawClient, OpenClawConfig, LOBBY_SYSTEM_PROMPT
 from ..core.tts import TTSClient, TTSConfig
 from ..core.emotion import EmotionAnalyzer, EmotionResult
 from ..core.live2d import Live2DLipsyncAnalyzer, Live2DParameters
+from ..core.live_subtitle import LiveSubtitleManager, SubtitleConfig
 from ..integrations.youtube import YouTubeChat, YouTubeChatConfig, YouTubeComment, CommentType
 from ..integrations.twitch import TwitchChat, TwitchChatConfig, TwitchMessage, TwitchMessageType
 
@@ -56,6 +57,7 @@ class LiveModeConfig:
     """ライブモード設定"""
     openclaw: OpenClawConfig = field(default_factory=OpenClawConfig)
     tts: TTSConfig = field(default_factory=TTSConfig)
+    subtitle: SubtitleConfig = field(default_factory=SubtitleConfig)
     
     # キュー設定
     max_queue_size: int = 50
@@ -69,6 +71,7 @@ class LiveModeConfig:
     # 出力設定
     audio_output_dir: Path = field(default_factory=lambda: Path("./output/live"))
     generate_live2d: bool = True
+    generate_subtitles: bool = True  # リアルタイム字幕生成
 
 
 class LiveMode:
@@ -91,6 +94,11 @@ class LiveMode:
         if self.config.generate_live2d:
             from ..core.live2d import Live2DConfig
             self._live2d = Live2DLipsyncAnalyzer(Live2DConfig())
+        
+        # 字幕マネージャー
+        self._subtitle: Optional[LiveSubtitleManager] = None
+        if self.config.generate_subtitles:
+            self._subtitle = LiveSubtitleManager(self.config.subtitle)
         
         # 入力キュー
         self._input_queue: deque[LiveInput] = deque(maxlen=self.config.max_queue_size)
@@ -117,6 +125,21 @@ class LiveMode:
     def set_error_callback(self, callback: Callable[[Exception], None]):
         """エラーコールバック設定"""
         self._on_error = callback
+    
+    @property
+    def subtitle_manager(self) -> Optional[LiveSubtitleManager]:
+        """字幕マネージャーを取得"""
+        return self._subtitle
+    
+    def set_subtitle_callback(self, callback: Callable):
+        """字幕コールバック設定"""
+        if self._subtitle:
+            self._subtitle.set_subtitle_callback(callback)
+    
+    def set_subtitle_clear_callback(self, callback: Callable):
+        """字幕クリアコールバック設定"""
+        if self._subtitle:
+            self._subtitle.set_clear_callback(callback)
     
     def add_input(self, input_data: LiveInput) -> bool:
         """入力をキューに追加
@@ -219,6 +242,26 @@ class LiveMode:
             if self._live2d and audio_path.exists():
                 live2d_params = self._live2d.analyze_audio(audio_path)
             
+            # 5. リアルタイム字幕表示
+            if self._subtitle:
+                # 音声の長さに基づいて字幕表示時間を設定
+                duration_ms = None
+                if live2d_params:
+                    # フレームの最後のタイムスタンプを使用
+                    duration_ms = live2d_params[-1].timestamp_ms if live2d_params else None
+                
+                await self._subtitle.show_subtitle(
+                    text=response_text,
+                    speaker="",  # アバター名を設定可能
+                    emotion=emotion.primary.value,
+                    duration_ms=duration_ms,
+                    metadata={
+                        "input_author": input_data.author,
+                        "input_text": input_data.text[:50],
+                        "source": input_data.source.value,
+                    },
+                )
+            
             # 出力オブジェクト作成
             output = LiveOutput(
                 input=input_data,
@@ -262,6 +305,18 @@ class LiveMode:
         live2d_params = None
         if self._live2d and audio_path.exists():
             live2d_params = self._live2d.analyze_audio(audio_path)
+        
+        # 字幕表示
+        if self._subtitle:
+            duration_ms = None
+            if live2d_params:
+                duration_ms = live2d_params[-1].timestamp_ms if live2d_params else None
+            
+            await self._subtitle.show_subtitle(
+                text=result.text,
+                emotion=emotion.primary.value,
+                duration_ms=duration_ms,
+            )
         
         return LiveOutput(
             input=input_data,

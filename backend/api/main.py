@@ -13,12 +13,13 @@ from .obs import router as obs_router
 from .audio import router as audio_router
 from .scene import router as scene_router
 from .vrm import router as vrm_router
+from .subtitle import router as subtitle_router
 
 # アプリケーション作成
 app = FastAPI(
     title="Lobby",
     description="AI VTuber配信・収録ソフト API",
-    version="0.6.0",
+    version="0.7.0",
 )
 
 # CORS設定（開発用）
@@ -47,6 +48,9 @@ app.include_router(scene_router)
 
 # VRM (3D) ルーター登録
 app.include_router(vrm_router)
+
+# Subtitle ルーター登録
+app.include_router(subtitle_router)
 
 
 @app.get("/")

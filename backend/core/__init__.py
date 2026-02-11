@@ -21,6 +21,15 @@ from .live2d import (
 from .tts import TTSClient, TTSConfig
 from .video import VideoComposer, VideoConfig, get_audio_duration_ms
 from .openclaw import OpenClawClient, OpenClawConfig, LOBBY_SYSTEM_PROMPT
+from .audio_manager import (
+    AudioChannel,
+    AudioManager,
+    AudioTrack,
+    EMOTION_SE_MAPPING,
+    PlaybackState,
+    RepeatMode,
+    SoundEffect,
+)
 
 
 # Pipeline は循環参照を避けるため遅延インポート
@@ -87,4 +96,12 @@ __all__ = [
     "OpenClawClient",
     "OpenClawConfig",
     "LOBBY_SYSTEM_PROMPT",
+    # Audio Manager
+    "AudioChannel",
+    "AudioManager",
+    "AudioTrack",
+    "EMOTION_SE_MAPPING",
+    "PlaybackState",
+    "RepeatMode",
+    "SoundEffect",
 ]

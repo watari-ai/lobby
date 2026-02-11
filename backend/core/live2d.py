@@ -3,10 +3,13 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from loguru import logger
+
+if TYPE_CHECKING:
+    from .emotion import Emotion
 
 try:
     import scipy.io.wavfile as wavfile
@@ -347,3 +350,160 @@ class Live2DModel:
             motions=motions,
             expressions=expressions,
         )
+
+
+def emotion_to_live2d_expression(emotion: "Emotion") -> Live2DExpression:
+    """感情タグをLive2D表情に変換
+
+    Args:
+        emotion: emotion.pyのEmotion列挙型
+
+    Returns:
+        対応するLive2DExpression
+    """
+    from .emotion import Emotion
+
+    mapping = {
+        Emotion.HAPPY: Live2DExpression.HAPPY,
+        Emotion.SAD: Live2DExpression.SAD,
+        Emotion.EXCITED: Live2DExpression.EXCITED,
+        Emotion.ANGRY: Live2DExpression.ANGRY,
+        Emotion.SURPRISED: Live2DExpression.SURPRISED,
+        Emotion.NEUTRAL: Live2DExpression.NEUTRAL,
+    }
+    return mapping.get(emotion, Live2DExpression.NEUTRAL)
+
+
+@dataclass
+class EmotionDrivenConfig:
+    """感情エンジン統合設定"""
+    # 感情強度に応じたパラメータ乗数
+    intensity_multiplier: float = 1.5
+    # 低強度時に neutral にフォールバックする閾値
+    neutral_threshold: float = 0.3
+    # 感情遷移のスムージング（フレーム数）
+    transition_frames: int = 10
+
+
+class EmotionDrivenLive2D:
+    """感情エンジンとLive2Dの統合クラス
+
+    テキスト入力から感情分析を行い、Live2Dパラメータを生成する
+    """
+
+    def __init__(
+        self,
+        live2d_config: Live2DConfig | None = None,
+        emotion_config: EmotionDrivenConfig | None = None,
+    ):
+        from .emotion import EmotionAnalyzer
+
+        self.live2d_config = live2d_config or Live2DConfig()
+        self.emotion_config = emotion_config or EmotionDrivenConfig()
+        self.emotion_analyzer = EmotionAnalyzer()
+        self.lipsync_analyzer = Live2DLipsyncAnalyzer(self.live2d_config)
+
+        # 現在の感情状態（スムージング用）
+        self._current_expression = Live2DExpression.NEUTRAL
+        self._current_intensity = 0.5
+        self._transition_progress = 1.0
+
+    def analyze_text(self, text: str) -> tuple[Live2DExpression, float]:
+        """テキストから感情を分析し、Live2D表情と強度を返す
+
+        Args:
+            text: 分析するテキスト
+
+        Returns:
+            (Live2DExpression, intensity)
+        """
+        result = self.emotion_analyzer.analyze(text)
+        expression = emotion_to_live2d_expression(result.primary)
+        intensity = result.intensity
+
+        # 強度が閾値以下ならneutralにフォールバック
+        if intensity < self.emotion_config.neutral_threshold:
+            expression = Live2DExpression.NEUTRAL
+            intensity = 0.5
+
+        return expression, intensity
+
+    def generate_speaking_frames(
+        self,
+        text: str,
+        audio_path: Path,
+    ) -> list[Live2DFrame]:
+        """テキストと音声から感情付きLive2Dフレームを生成
+
+        Args:
+            text: 台詞テキスト（感情分析用）
+            audio_path: 音声ファイルパス（リップシンク用）
+
+        Returns:
+            Live2DFrameのリスト
+        """
+        # テキストから感情を分析
+        expression, intensity = self.analyze_text(text)
+        logger.info(f"Detected emotion: {expression.value} (intensity: {intensity:.2f})")
+
+        # 音声からリップシンクフレームを生成
+        frames = self.lipsync_analyzer.analyze_audio(audio_path, expression)
+
+        # 感情強度に応じてパラメータを調整
+        self._apply_intensity(frames, intensity)
+
+        return frames
+
+    def _apply_intensity(
+        self,
+        frames: list[Live2DFrame],
+        intensity: float,
+    ) -> None:
+        """感情強度をフレームに適用"""
+        multiplier = 1.0 + (intensity - 0.5) * self.emotion_config.intensity_multiplier
+
+        for frame in frames:
+            params = frame.parameters
+
+            # 表情関連パラメータに強度を適用
+            params.param_mouth_form *= multiplier
+            params.param_brow_l_y *= multiplier
+            params.param_brow_r_y *= multiplier
+
+            # 範囲をクリップ
+            params.param_mouth_form = max(-1.0, min(1.0, params.param_mouth_form))
+            params.param_brow_l_y = max(-1.0, min(1.0, params.param_brow_l_y))
+            params.param_brow_r_y = max(-1.0, min(1.0, params.param_brow_r_y))
+
+    def get_expression_params(
+        self,
+        text: str,
+    ) -> tuple[Live2DExpression, Live2DParameters]:
+        """テキストから静的な表情パラメータを取得
+
+        リップシンクなしで表情のみを更新したい場合に使用
+
+        Args:
+            text: 分析するテキスト
+
+        Returns:
+            (Live2DExpression, Live2DParameters)
+        """
+        expression, intensity = self.analyze_text(text)
+
+        # 表情プリセットを取得
+        preset = self.live2d_config.expression_presets.get(expression, {})
+        params = Live2DParameters()
+
+        # プリセットを適用
+        for key, value in preset.items():
+            if hasattr(params, key):
+                setattr(params, key, value)
+
+        # 強度を適用
+        multiplier = 1.0 + (intensity - 0.5) * self.emotion_config.intensity_multiplier
+        params.param_mouth_form *= multiplier
+        params.param_brow_l_y *= multiplier
+        params.param_brow_r_y *= multiplier
+
+        return expression, params

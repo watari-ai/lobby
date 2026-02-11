@@ -9,6 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
 
 from ..core.live2d import (
+    EmotionDrivenLive2D,
     Live2DConfig,
     Live2DExpression,
     Live2DFrame,
@@ -128,6 +129,9 @@ class ConnectionManager:
 # グローバル接続マネージャー
 manager = ConnectionManager()
 
+# 感情エンジン統合インスタンス
+emotion_driven = EmotionDrivenLive2D()
+
 
 @router.websocket("/ws/live2d")
 async def websocket_live2d(websocket: WebSocket):
@@ -136,11 +140,14 @@ async def websocket_live2d(websocket: WebSocket):
     接続後、以下のメッセージタイプを受信:
     - parameters: パラメータ更新 {"type": "parameters", "data": {...}}
     - frame: フレーム更新 {"type": "frame", "timestamp_ms": int, "parameters": {...}, ...}
+    - emotion: 感情分析結果 {"type": "emotion", "expression": "happy", "intensity": 0.8}
 
     クライアントから送信可能:
     - {"action": "set_expression", "expression": "happy"}
     - {"action": "play_motion", "motion": "idle_01"}
     - {"action": "set_param", "name": "ParamMouthOpenY", "value": 0.5}
+    - {"action": "analyze_text", "text": "すごいっす！"} # テキストから感情分析
+    - {"action": "speak", "text": "すごいっす！", "audio_path": "/path/to/audio.mp3"} # 感情+リップシンク
     """
     await manager.connect(websocket)
 
@@ -187,6 +194,53 @@ async def websocket_live2d(websocket: WebSocket):
 
             elif action == "stop":
                 manager.stop_streaming()
+
+            elif action == "analyze_text":
+                # テキストから感情分析（表情のみ更新、リップシンクなし）
+                text = data.get("text", "")
+                if text:
+                    expression, params = emotion_driven.get_expression_params(text)
+                    await manager.broadcast_parameters(params)
+                    # 感情分析結果も送信
+                    for conn in manager.active_connections:
+                        await conn.send_json({
+                            "type": "emotion",
+                            "expression": expression.value,
+                            "text": text,
+                        })
+
+            elif action == "speak":
+                # テキスト+音声から感情付きリップシンク
+                text = data.get("text", "")
+                audio_path_str = data.get("audio_path", "")
+
+                if text and audio_path_str:
+                    audio_path = Path(audio_path_str)
+                    if audio_path.exists():
+                        # 感情分析結果を送信
+                        expression, _ = emotion_driven.analyze_text(text)
+                        for conn in manager.active_connections:
+                            await conn.send_json({
+                                "type": "emotion",
+                                "expression": expression.value,
+                                "text": text,
+                            })
+
+                        # 感情付きフレームを生成してストリーム
+                        frames = emotion_driven.generate_speaking_frames(text, audio_path)
+                        asyncio.create_task(manager.stream_frames(frames))
+
+                        await websocket.send_json({
+                            "type": "speaking",
+                            "status": "started",
+                            "frame_count": len(frames),
+                            "expression": expression.value,
+                        })
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"Audio file not found: {audio_path_str}",
+                        })
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -244,3 +298,65 @@ async def stop_streaming():
     """ストリーミング停止"""
     manager.stop_streaming()
     return {"status": "stopped"}
+
+
+@router.post("/api/live2d/emotion")
+async def analyze_emotion(text: str):
+    """テキストから感情を分析
+
+    Args:
+        text: 分析するテキスト
+
+    Returns:
+        expression: 検出された表情
+        intensity: 感情の強度 (0.0-1.0)
+        parameters: 対応するLive2Dパラメータ
+    """
+    expression, params = emotion_driven.get_expression_params(text)
+
+    # 強度も取得
+    result = emotion_driven.emotion_analyzer.analyze(text)
+
+    return {
+        "expression": expression.value,
+        "intensity": result.intensity,
+        "primary_emotion": result.primary.value,
+        "secondary_emotion": result.secondary.value if result.secondary else None,
+        "parameters": params.to_dict(),
+        "raw_text": result.raw_text,
+    }
+
+
+@router.post("/api/live2d/speak")
+async def speak_with_emotion(text: str, audio_path: str):
+    """感情付き発話ストリーミング
+
+    テキストから感情を分析し、音声ファイルと組み合わせて
+    Live2Dフレームを生成してWebSocket経由でストリーム
+
+    Args:
+        text: 台詞テキスト
+        audio_path: 音声ファイルパス
+
+    Returns:
+        status: ストリーミング状態
+        expression: 検出された表情
+        frame_count: 生成されたフレーム数
+    """
+    path = Path(audio_path)
+    if not path.exists():
+        return {"error": f"Audio file not found: {audio_path}"}
+
+    expression, intensity = emotion_driven.analyze_text(text)
+    frames = emotion_driven.generate_speaking_frames(text, path)
+
+    # 非同期でストリーミング開始
+    asyncio.create_task(manager.stream_frames(frames))
+
+    return {
+        "status": "streaming",
+        "expression": expression.value,
+        "intensity": intensity,
+        "frame_count": len(frames),
+        "duration_ms": frames[-1].timestamp_ms if frames else 0,
+    }

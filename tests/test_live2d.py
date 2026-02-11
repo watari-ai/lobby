@@ -2,12 +2,16 @@
 
 import pytest
 
+from backend.core.emotion import Emotion
 from backend.core.live2d import (
+    EmotionDrivenConfig,
+    EmotionDrivenLive2D,
     Live2DConfig,
     Live2DExpression,
     Live2DFrame,
     Live2DLipsyncAnalyzer,
     Live2DParameters,
+    emotion_to_live2d_expression,
 )
 
 
@@ -165,3 +169,168 @@ class TestLive2DFrame:
 
         assert frame.expression == Live2DExpression.HAPPY
         assert frame.motion == "greeting"
+
+
+class TestEmotionToLive2DExpression:
+    """emotion_to_live2d_expression tests"""
+
+    def test_happy_mapping(self):
+        """HAPPYが正しく変換される"""
+        result = emotion_to_live2d_expression(Emotion.HAPPY)
+        assert result == Live2DExpression.HAPPY
+
+    def test_sad_mapping(self):
+        """SADが正しく変換される"""
+        result = emotion_to_live2d_expression(Emotion.SAD)
+        assert result == Live2DExpression.SAD
+
+    def test_excited_mapping(self):
+        """EXCITEDが正しく変換される"""
+        result = emotion_to_live2d_expression(Emotion.EXCITED)
+        assert result == Live2DExpression.EXCITED
+
+    def test_angry_mapping(self):
+        """ANGRYが正しく変換される"""
+        result = emotion_to_live2d_expression(Emotion.ANGRY)
+        assert result == Live2DExpression.ANGRY
+
+    def test_surprised_mapping(self):
+        """SURPRISEDが正しく変換される"""
+        result = emotion_to_live2d_expression(Emotion.SURPRISED)
+        assert result == Live2DExpression.SURPRISED
+
+    def test_neutral_mapping(self):
+        """NEUTRALが正しく変換される"""
+        result = emotion_to_live2d_expression(Emotion.NEUTRAL)
+        assert result == Live2DExpression.NEUTRAL
+
+    def test_all_emotions_mapped(self):
+        """すべてのEmotionがマッピングされている"""
+        for emotion in Emotion:
+            result = emotion_to_live2d_expression(emotion)
+            assert isinstance(result, Live2DExpression)
+
+
+class TestEmotionDrivenConfig:
+    """EmotionDrivenConfig tests"""
+
+    def test_default_values(self):
+        """デフォルト値が正しく設定されている"""
+        config = EmotionDrivenConfig()
+
+        assert config.intensity_multiplier == 1.5
+        assert config.neutral_threshold == 0.3
+        assert config.transition_frames == 10
+
+    def test_custom_values(self):
+        """カスタム値が設定できる"""
+        config = EmotionDrivenConfig(
+            intensity_multiplier=2.0,
+            neutral_threshold=0.5,
+        )
+
+        assert config.intensity_multiplier == 2.0
+        assert config.neutral_threshold == 0.5
+
+
+class TestEmotionDrivenLive2D:
+    """EmotionDrivenLive2D tests"""
+
+    def test_initialization(self):
+        """初期化が正常に動作する"""
+        engine = EmotionDrivenLive2D()
+
+        assert engine.emotion_analyzer is not None
+        assert engine.lipsync_analyzer is not None
+        assert engine._current_expression == Live2DExpression.NEUTRAL
+
+    def test_analyze_text_happy(self):
+        """嬉しいテキストの分析"""
+        engine = EmotionDrivenLive2D()
+
+        expression, intensity = engine.analyze_text("やったー！嬉しい！")
+
+        assert expression == Live2DExpression.HAPPY
+        assert intensity > 0.3
+
+    def test_analyze_text_excited(self):
+        """興奮したテキストの分析"""
+        engine = EmotionDrivenLive2D()
+
+        expression, intensity = engine.analyze_text("マジすごいっす！やばいっすね！！")
+
+        assert expression == Live2DExpression.EXCITED
+        assert intensity > 0.5
+
+    def test_analyze_text_sad(self):
+        """悲しいテキストの分析"""
+        engine = EmotionDrivenLive2D()
+
+        expression, intensity = engine.analyze_text("悲しい...辛いな...")
+
+        assert expression == Live2DExpression.SAD
+        assert intensity > 0.3
+
+    def test_analyze_text_neutral_fallback(self):
+        """低強度はneutralにフォールバック"""
+        config = EmotionDrivenConfig(neutral_threshold=0.9)
+        engine = EmotionDrivenLive2D(emotion_config=config)
+
+        expression, intensity = engine.analyze_text("こんにちは")
+
+        assert expression == Live2DExpression.NEUTRAL
+
+    def test_get_expression_params(self):
+        """表情パラメータの取得"""
+        engine = EmotionDrivenLive2D()
+
+        expression, params = engine.get_expression_params("嬉しいっす！")
+
+        assert expression == Live2DExpression.HAPPY
+        assert isinstance(params, Live2DParameters)
+        assert params.param_mouth_form > 0  # 笑顔
+
+    def test_apply_intensity(self):
+        """強度の適用"""
+        engine = EmotionDrivenLive2D()
+
+        frames = [
+            Live2DFrame(
+                timestamp_ms=0,
+                parameters=Live2DParameters(
+                    param_mouth_form=0.5,
+                    param_brow_l_y=0.3,
+                    param_brow_r_y=0.3,
+                ),
+            )
+        ]
+
+        # 高強度を適用
+        engine._apply_intensity(frames, 0.9)
+
+        # パラメータが増幅されている
+        assert frames[0].parameters.param_mouth_form > 0.5
+        assert frames[0].parameters.param_brow_l_y > 0.3
+
+    def test_apply_intensity_clipping(self):
+        """強度適用時の範囲クリップ"""
+        engine = EmotionDrivenLive2D()
+
+        frames = [
+            Live2DFrame(
+                timestamp_ms=0,
+                parameters=Live2DParameters(
+                    param_mouth_form=0.9,
+                    param_brow_l_y=0.9,
+                    param_brow_r_y=0.9,
+                ),
+            )
+        ]
+
+        # 非常に高い強度を適用
+        engine._apply_intensity(frames, 1.0)
+
+        # 範囲内にクリップされている
+        assert -1.0 <= frames[0].parameters.param_mouth_form <= 1.0
+        assert -1.0 <= frames[0].parameters.param_brow_l_y <= 1.0
+        assert -1.0 <= frames[0].parameters.param_brow_r_y <= 1.0

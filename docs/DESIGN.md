@@ -240,7 +240,7 @@ lobby/
 ### Phase 3: ライブ配信（1週間）
 - [x] OpenClaw Gateway連携（OpenClawClient, LiveMode）
 - [x] ライブモードAPI（REST + WebSocket）
-- [ ] YouTubeコメント取得
+- [x] YouTubeコメント取得（YouTubeChat, YouTubeLiveMode）
 - [ ] リアルタイム応答テスト
 - [ ] OBS出力
 

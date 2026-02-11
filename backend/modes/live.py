@@ -17,6 +17,7 @@ from ..core.openclaw import OpenClawClient, OpenClawConfig, LOBBY_SYSTEM_PROMPT
 from ..core.tts import TTSClient, TTSConfig
 from ..core.emotion import EmotionAnalyzer, EmotionResult
 from ..core.live2d import Live2DLipsyncAnalyzer, Live2DParameters
+from ..integrations.youtube import YouTubeChat, YouTubeChatConfig, YouTubeComment, CommentType
 
 
 class InputSource(Enum):
@@ -292,6 +293,159 @@ class LiveMode:
         await self.close()
 
 
+class YouTubeLiveMode(LiveMode):
+    """YouTube Live連携モード
+    
+    LiveModeにYouTubeコメント取得を統合。
+    
+    使用例:
+    ```python
+    async with YouTubeLiveMode(config) as live:
+        await live.connect_youtube("VIDEO_ID", api_key="YOUR_API_KEY")
+        await live.start()
+        # コメントが自動的にキューに追加され処理される
+    ```
+    """
+    
+    def __init__(self, config: Optional[LiveModeConfig] = None):
+        super().__init__(config)
+        self._youtube: Optional[YouTubeChat] = None
+        self._youtube_task: Optional[asyncio.Task] = None
+        
+        # スパチャ優先処理用
+        self._priority_queue: deque[LiveInput] = deque(maxlen=20)
+    
+    async def connect_youtube(
+        self,
+        video_id_or_url: str,
+        api_key: str,
+        prioritize_super_chat: bool = True,
+    ) -> bool:
+        """YouTubeライブに接続
+        
+        Args:
+            video_id_or_url: 動画ID または URL
+            api_key: YouTube Data API v3キー
+            prioritize_super_chat: スパチャを優先処理するか
+            
+        Returns:
+            接続成功かどうか
+        """
+        yt_config = YouTubeChatConfig(api_key=api_key)
+        self._youtube = YouTubeChat(yt_config)
+        
+        success = await self._youtube.connect(video_id_or_url)
+        if not success:
+            logger.error("Failed to connect to YouTube live chat")
+            return False
+        
+        # コールバック設定
+        if prioritize_super_chat:
+            self._youtube.set_super_chat_callback(self._on_youtube_super_chat)
+        self._youtube.set_comment_callback(self._on_youtube_comment)
+        
+        logger.info(f"Connected to YouTube: {video_id_or_url}")
+        return True
+    
+    def _on_youtube_comment(self, comment: YouTubeComment):
+        """通常コメント受信時"""
+        live_input = LiveInput(
+            text=comment.text,
+            source=InputSource.YOUTUBE_COMMENT,
+            author=comment.author_name,
+            author_id=comment.author_channel_id,
+            timestamp=comment.published_at,
+            metadata={"profile_image": comment.author_profile_image},
+        )
+        self.add_input(live_input)
+    
+    def _on_youtube_super_chat(self, comment: YouTubeComment):
+        """スパチャ/メンバーシップ受信時（優先キュー）"""
+        metadata = {
+            "profile_image": comment.author_profile_image,
+            "type": comment.comment_type.value,
+        }
+        
+        if comment.amount:
+            metadata["amount"] = comment.amount
+            metadata["currency"] = comment.currency
+        
+        if comment.membership_months:
+            metadata["membership_months"] = comment.membership_months
+        
+        live_input = LiveInput(
+            text=comment.text,
+            source=InputSource.YOUTUBE_COMMENT,
+            author=comment.author_name,
+            author_id=comment.author_channel_id,
+            timestamp=comment.published_at,
+            metadata=metadata,
+        )
+        
+        # 優先キューに追加
+        self._priority_queue.append(live_input)
+        logger.info(f"[SuperChat] {comment.author_name}: {comment.text} ({comment.amount} {comment.currency})")
+    
+    async def start(self):
+        """処理ループ + YouTubeストリーム開始"""
+        if self._youtube:
+            self._youtube_task = asyncio.create_task(self._youtube_stream_loop())
+        await super().start()
+    
+    async def _youtube_stream_loop(self):
+        """YouTubeコメントストリームループ"""
+        try:
+            async for comment in self._youtube.stream():
+                if not self._running:
+                    break
+                # コールバック内で処理済み
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"YouTube stream error: {e}")
+    
+    async def _process_loop(self):
+        """メイン処理ループ（スパチャ優先）"""
+        while self._running:
+            try:
+                # 優先キュー（スパチャ）を先に処理
+                if self._priority_queue:
+                    input_data = self._priority_queue.popleft()
+                    await self._process_input(input_data)
+                # 通常キュー
+                elif self._input_queue:
+                    input_data = self._input_queue.popleft()
+                    await self._process_input(input_data)
+                else:
+                    await asyncio.sleep(self.config.process_interval)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Process loop error: {e}")
+                if self._on_error:
+                    self._on_error(e)
+                await asyncio.sleep(1.0)
+    
+    async def stop(self):
+        """全ループ停止"""
+        if self._youtube:
+            self._youtube.stop()
+        if self._youtube_task:
+            self._youtube_task.cancel()
+            try:
+                await self._youtube_task
+            except asyncio.CancelledError:
+                pass
+        await super().stop()
+    
+    async def close(self):
+        """リソース解放"""
+        await self.stop()
+        if self._youtube:
+            await self._youtube.close()
+        await super().close()
+
+
 async def create_lobby_live_mode(
     gateway_url: str = "http://localhost:18789",
     tts_url: str = "http://localhost:8001",
@@ -310,3 +464,23 @@ async def create_lobby_live_mode(
         ),
     )
     return LiveMode(config)
+
+
+async def create_lobby_youtube_mode(
+    gateway_url: str = "http://localhost:18789",
+    tts_url: str = "http://localhost:8001",
+) -> YouTubeLiveMode:
+    """ロビィ用YouTubeライブモード生成"""
+    config = LiveModeConfig(
+        openclaw=OpenClawConfig(
+            base_url=gateway_url,
+            system_prompt=LOBBY_SYSTEM_PROMPT,
+            temperature=0.9,
+            max_tokens=200,
+        ),
+        tts=TTSConfig(
+            base_url=tts_url,
+            voice="lobby",
+        ),
+    )
+    return YouTubeLiveMode(config)

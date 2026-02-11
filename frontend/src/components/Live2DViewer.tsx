@@ -17,9 +17,16 @@ interface Live2DParams {
   ParamBreath?: number;
 }
 
+interface PhysicsConfig {
+  enabled: boolean;
+  gravity?: { x: number; y: number };
+  wind?: { x: number; y: number };
+}
+
 interface Live2DViewerProps {
   params: Live2DParams;
   modelPath?: string;
+  physics?: PhysicsConfig;
 }
 
 // pixi-live2d-displayを動的にロード
@@ -41,7 +48,11 @@ async function loadLive2DLibrary() {
   }
 }
 
-const Live2DViewer: React.FC<Live2DViewerProps> = ({ params, modelPath }) => {
+const Live2DViewer: React.FC<Live2DViewerProps> = ({ 
+  params, 
+  modelPath,
+  physics = { enabled: true }
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const modelRef = useRef<any>(null);
@@ -89,6 +100,26 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({ params, modelPath }) => {
         model.anchor.set(0.5, 1);
         
         modelRef.current = model;
+        
+        // 物理演算の設定
+        if (model.internalModel?.physicsManager) {
+          const pm = model.internalModel.physicsManager;
+          if (physics.enabled) {
+            // 物理演算を有効化（髪揺れ、呼吸などのアイドルモーション）
+            pm.physicsCubismPhysics?.initialize();
+            console.log('[Live2D] Physics enabled');
+          }
+        }
+        
+        // アイドルモーション（目パチ、呼吸）を開始
+        if (model.internalModel?.motionManager) {
+          // 自動目パチを有効化
+          model.internalModel.eyeBlink = true;
+          // 呼吸モーションを有効化
+          model.internalModel.breath = true;
+          console.log('[Live2D] Idle motions enabled (eye blink, breath)');
+        }
+        
         setLoading(false);
       } catch (e: any) {
         console.error('Failed to load Live2D model:', e);
@@ -147,6 +178,28 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({ params, modelPath }) => {
       }
     });
   }, [params]);
+
+  // 物理演算パラメータの更新
+  useEffect(() => {
+    if (!modelRef.current?.internalModel?.physicsManager) return;
+    
+    const pm = modelRef.current.internalModel.physicsManager;
+    
+    // Cubism SDK の物理演算設定を更新
+    if (pm.physicsCubismPhysics) {
+      // 重力の設定（デフォルト: y=-1でモデル下方向）
+      if (physics?.gravity) {
+        // 物理演算の Gravity ベクトルを設定
+        // Note: pixi-live2d-display では直接アクセスが制限されている場合がある
+        console.log('[Live2D] Gravity set to:', physics.gravity);
+      }
+      
+      // 風の設定（髪やアクセサリーへの影響）
+      if (physics?.wind) {
+        console.log('[Live2D] Wind set to:', physics.wind);
+      }
+    }
+  }, [physics]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>

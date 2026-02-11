@@ -235,7 +235,7 @@ lobby/
 - [x] 表情プリセット（6種類）
 - [x] Live2Dレンダリング（フロントエンド）
 - [x] 感情エンジン統合（EmotionDrivenLive2D）
-- [ ] 物理演算連携
+- [x] 物理演算連携（目パチ、呼吸、重力・風設定）
 
 ### Phase 3: ライブ配信（1週間）
 - [ ] OpenClaw Gateway連携

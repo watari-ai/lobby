@@ -1,11 +1,19 @@
 import React from 'react';
 
+interface PhysicsConfig {
+  enabled: boolean;
+  gravity?: { x: number; y: number };
+  wind?: { x: number; y: number };
+}
+
 interface ControlPanelProps {
   expressions: readonly string[];
   currentExpression: string;
   onExpressionChange: (expression: string) => void;
   onParamChange: (name: string, value: number) => void;
   params: Record<string, number>;
+  physics?: PhysicsConfig;
+  onPhysicsChange?: (physics: PhysicsConfig) => void;
 }
 
 const PARAM_SLIDERS = [
@@ -34,7 +42,27 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   onExpressionChange,
   onParamChange,
   params,
+  physics = { enabled: true, gravity: { x: 0, y: -1 }, wind: { x: 0, y: 0 } },
+  onPhysicsChange,
 }) => {
+  const handlePhysicsToggle = () => {
+    onPhysicsChange?.({ ...physics, enabled: !physics.enabled });
+  };
+
+  const handleGravityChange = (axis: 'x' | 'y', value: number) => {
+    onPhysicsChange?.({
+      ...physics,
+      gravity: { ...physics.gravity!, [axis]: value },
+    });
+  };
+
+  const handleWindChange = (axis: 'x' | 'y', value: number) => {
+    onPhysicsChange?.({
+      ...physics,
+      wind: { ...physics.wind!, [axis]: value },
+    });
+  };
+
   return (
     <>
       <div className="panel">
@@ -70,6 +98,81 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             />
           </div>
         ))}
+      </div>
+
+      <div className="panel">
+        <h3>🌊 物理演算</h3>
+        <div className="physics-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={physics.enabled}
+              onChange={handlePhysicsToggle}
+            />
+            <span>物理演算を有効化（髪揺れ、呼吸等）</span>
+          </label>
+        </div>
+        
+        {physics.enabled && (
+          <>
+            <div className="param-slider">
+              <label>
+                <span>重力 X</span>
+                <span>{physics.gravity?.x?.toFixed(2) ?? 0}</span>
+              </label>
+              <input
+                type="range"
+                min={-2}
+                max={2}
+                step={0.1}
+                value={physics.gravity?.x ?? 0}
+                onChange={(e) => handleGravityChange('x', parseFloat(e.target.value))}
+              />
+            </div>
+            <div className="param-slider">
+              <label>
+                <span>重力 Y</span>
+                <span>{physics.gravity?.y?.toFixed(2) ?? -1}</span>
+              </label>
+              <input
+                type="range"
+                min={-2}
+                max={2}
+                step={0.1}
+                value={physics.gravity?.y ?? -1}
+                onChange={(e) => handleGravityChange('y', parseFloat(e.target.value))}
+              />
+            </div>
+            <div className="param-slider">
+              <label>
+                <span>風 X（左右）</span>
+                <span>{physics.wind?.x?.toFixed(2) ?? 0}</span>
+              </label>
+              <input
+                type="range"
+                min={-2}
+                max={2}
+                step={0.1}
+                value={physics.wind?.x ?? 0}
+                onChange={(e) => handleWindChange('x', parseFloat(e.target.value))}
+              />
+            </div>
+            <div className="param-slider">
+              <label>
+                <span>風 Y（上下）</span>
+                <span>{physics.wind?.y?.toFixed(2) ?? 0}</span>
+              </label>
+              <input
+                type="range"
+                min={-2}
+                max={2}
+                step={0.1}
+                value={physics.wind?.y ?? 0}
+                onChange={(e) => handleWindChange('y', parseFloat(e.target.value))}
+              />
+            </div>
+          </>
+        )}
       </div>
     </>
   );

@@ -1,7 +1,7 @@
 # 🦞 Lobby - AI VTuber配信・収録ソフト
 
 <p align="center">
-  <img src="docs/images/lobby-logo.png" alt="Lobby Logo" width="200">
+  <img src="docs/lobby-logo.png" alt="Lobby Logo" width="200">
 </p>
 
 <p align="center">

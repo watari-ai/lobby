@@ -40,6 +40,19 @@ from .scene import (
     SceneManager,
     get_scene_manager,
 )
+from .vrm import (
+    EMOTION_TO_VRM_EXPRESSION,
+    PHONEME_TO_VRM_VISEME,
+    VRMController,
+    VRMExpression,
+    VRMExpressionPreset,
+    VRMExpressionState,
+    VRMLookAt,
+    VRMMetadata,
+    VRMModel,
+    get_vrm_controller,
+    parse_vrm_glb,
+)
 
 
 # Pipeline は循環参照を避けるため遅延インポート
@@ -123,4 +136,16 @@ __all__ = [
     "Scene",
     "SceneManager",
     "get_scene_manager",
+    # VRM (3D)
+    "EMOTION_TO_VRM_EXPRESSION",
+    "PHONEME_TO_VRM_VISEME",
+    "VRMController",
+    "VRMExpression",
+    "VRMExpressionPreset",
+    "VRMExpressionState",
+    "VRMLookAt",
+    "VRMMetadata",
+    "VRMModel",
+    "get_vrm_controller",
+    "parse_vrm_glb",
 ]

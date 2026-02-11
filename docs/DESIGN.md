@@ -245,7 +245,7 @@ lobby/
 - [x] リアルタイム応答テスト（統合テスト）
 
 ### Phase 4: 拡張機能
-- [ ] 3D（VRM）対応
+- [x] 3D（VRM）対応（VRMController + REST API）
 - [x] Twitch対応（TwitchChat + TwitchLiveMode）
 - [x] BGM/SE管理（AudioManager + REST API）
 - [x] シーン管理（SceneManager + REST API）
@@ -295,4 +295,4 @@ pnpm run build      # プロダクションビルド
 
 ---
 
-*最終更新: 2026-02-12 04:35*
+*最終更新: 2026-02-12 06:35*

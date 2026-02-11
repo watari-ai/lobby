@@ -18,6 +18,7 @@ from ..core.tts import TTSClient, TTSConfig
 from ..core.emotion import EmotionAnalyzer, EmotionResult
 from ..core.live2d import Live2DLipsyncAnalyzer, Live2DParameters
 from ..integrations.youtube import YouTubeChat, YouTubeChatConfig, YouTubeComment, CommentType
+from ..integrations.twitch import TwitchChat, TwitchChatConfig, TwitchMessage, TwitchMessageType
 
 
 class InputSource(Enum):
@@ -446,6 +447,204 @@ class YouTubeLiveMode(LiveMode):
         await super().close()
 
 
+class TwitchLiveMode(LiveMode):
+    """Twitch連携モード
+    
+    LiveModeにTwitchチャット取得を統合。
+    
+    使用例:
+    ```python
+    async with TwitchLiveMode(config) as live:
+        await live.connect_twitch("channel_name", oauth_token="oauth:xxx")
+        await live.start()
+        # コメントが自動的にキューに追加され処理される
+    ```
+    
+    匿名接続（読み取り専用）:
+    ```python
+    async with TwitchLiveMode(config) as live:
+        await live.connect_twitch("channel_name")  # OAuth不要
+        await live.start()
+    ```
+    """
+    
+    def __init__(self, config: Optional[LiveModeConfig] = None):
+        super().__init__(config)
+        self._twitch: Optional[TwitchChat] = None
+        self._twitch_task: Optional[asyncio.Task] = None
+        
+        # Bits/サブスク優先処理用
+        self._priority_queue: deque[LiveInput] = deque(maxlen=20)
+    
+    async def connect_twitch(
+        self,
+        channel: str,
+        oauth_token: str = "",
+        nick: str = "justinfan12345",
+        prioritize_bits: bool = True,
+    ) -> bool:
+        """Twitchチャンネルに接続
+        
+        Args:
+            channel: チャンネル名（# なし）
+            oauth_token: OAuth トークン（空の場合は匿名接続）
+            nick: ボット名（匿名接続の場合は justinfan12345）
+            prioritize_bits: Bits/サブスクを優先処理するか
+            
+        Returns:
+            接続成功かどうか
+        """
+        twitch_config = TwitchChatConfig(
+            oauth_token=oauth_token,
+            nick=nick,
+            channel=channel,
+        )
+        self._twitch = TwitchChat(twitch_config)
+        
+        success = await self._twitch.connect()
+        if not success:
+            logger.error("Failed to connect to Twitch chat")
+            return False
+        
+        # コールバック設定
+        self._twitch.set_message_callback(self._on_twitch_message)
+        if prioritize_bits:
+            self._twitch.set_bits_callback(self._on_twitch_bits)
+            self._twitch.set_sub_callback(self._on_twitch_sub)
+            self._twitch.set_raid_callback(self._on_twitch_raid)
+        
+        logger.info(f"Connected to Twitch: #{channel}")
+        return True
+    
+    def _on_twitch_message(self, message: TwitchMessage):
+        """通常メッセージ受信時"""
+        live_input = LiveInput(
+            text=message.text,
+            source=InputSource.TWITCH_COMMENT,
+            author=message.author_display_name,
+            author_id=message.author_id,
+            timestamp=message.timestamp,
+            metadata={
+                "badges": [b.name for b in message.badges],
+                "emotes": [e.name for e in message.emotes],
+                "color": message.color,
+                "is_subscriber": message.is_subscriber,
+                "is_moderator": message.is_moderator,
+                "is_vip": message.is_vip,
+            },
+        )
+        self.add_input(live_input)
+    
+    def _on_twitch_bits(self, message: TwitchMessage):
+        """Bits受信時（優先キュー）"""
+        live_input = LiveInput(
+            text=message.text,
+            source=InputSource.TWITCH_COMMENT,
+            author=message.author_display_name,
+            author_id=message.author_id,
+            timestamp=message.timestamp,
+            metadata={
+                "type": "bits",
+                "bits": message.bits,
+                "badges": [b.name for b in message.badges],
+            },
+        )
+        self._priority_queue.append(live_input)
+        logger.info(f"[Bits] {message.author_display_name}: {message.text} ({message.bits} bits)")
+    
+    def _on_twitch_sub(self, message: TwitchMessage):
+        """サブスク受信時（優先キュー）"""
+        live_input = LiveInput(
+            text=message.text or "サブスクありがとう！",
+            source=InputSource.TWITCH_COMMENT,
+            author=message.author_display_name,
+            author_id=message.author_id,
+            timestamp=message.timestamp,
+            metadata={
+                "type": message.message_type.value,
+                "sub_months": message.sub_months,
+                "sub_tier": message.sub_tier,
+            },
+        )
+        self._priority_queue.append(live_input)
+        logger.info(f"[Sub] {message.author_display_name}: {message.sub_months}ヶ月 (Tier {message.sub_tier})")
+    
+    def _on_twitch_raid(self, message: TwitchMessage):
+        """レイド受信時（優先キュー）"""
+        live_input = LiveInput(
+            text=f"レイドありがとう！{message.raid_viewer_count}人も来てくれたっす！",
+            source=InputSource.TWITCH_COMMENT,
+            author=message.author_display_name,
+            author_id=message.author_id,
+            timestamp=message.timestamp,
+            metadata={
+                "type": "raid",
+                "viewer_count": message.raid_viewer_count,
+            },
+        )
+        self._priority_queue.append(live_input)
+        logger.info(f"[Raid] {message.author_display_name}: {message.raid_viewer_count}人")
+    
+    async def start(self):
+        """処理ループ + Twitchストリーム開始"""
+        if self._twitch:
+            self._twitch_task = asyncio.create_task(self._twitch_stream_loop())
+        await super().start()
+    
+    async def _twitch_stream_loop(self):
+        """Twitchチャットストリームループ"""
+        try:
+            async for message in self._twitch.stream():
+                if not self._running:
+                    break
+                # コールバック内で処理済み
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Twitch stream error: {e}")
+    
+    async def _process_loop(self):
+        """メイン処理ループ（Bits/サブスク優先）"""
+        while self._running:
+            try:
+                # 優先キュー（Bits/サブスク）を先に処理
+                if self._priority_queue:
+                    input_data = self._priority_queue.popleft()
+                    await self._process_input(input_data)
+                # 通常キュー
+                elif self._input_queue:
+                    input_data = self._input_queue.popleft()
+                    await self._process_input(input_data)
+                else:
+                    await asyncio.sleep(self.config.process_interval)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Process loop error: {e}")
+                if self._on_error:
+                    self._on_error(e)
+                await asyncio.sleep(1.0)
+    
+    async def stop(self):
+        """全ループ停止"""
+        if self._twitch:
+            self._twitch.stop()
+        if self._twitch_task:
+            self._twitch_task.cancel()
+            try:
+                await self._twitch_task
+            except asyncio.CancelledError:
+                pass
+        await super().stop()
+    
+    async def close(self):
+        """リソース解放"""
+        await self.stop()
+        if self._twitch:
+            await self._twitch.close()
+        await super().close()
+
+
 async def create_lobby_live_mode(
     gateway_url: str = "http://localhost:18789",
     tts_url: str = "http://localhost:8001",
@@ -484,3 +683,23 @@ async def create_lobby_youtube_mode(
         ),
     )
     return YouTubeLiveMode(config)
+
+
+async def create_lobby_twitch_mode(
+    gateway_url: str = "http://localhost:18789",
+    tts_url: str = "http://localhost:8001",
+) -> TwitchLiveMode:
+    """ロビィ用Twitchライブモード生成"""
+    config = LiveModeConfig(
+        openclaw=OpenClawConfig(
+            base_url=gateway_url,
+            system_prompt=LOBBY_SYSTEM_PROMPT,
+            temperature=0.9,
+            max_tokens=200,
+        ),
+        tts=TTSConfig(
+            base_url=tts_url,
+            voice="lobby",
+        ),
+    )
+    return TwitchLiveMode(config)

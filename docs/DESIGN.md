@@ -246,7 +246,7 @@ lobby/
 
 ### Phase 4: 拡張機能
 - [ ] 3D（VRM）対応
-- [ ] Twitch対応
+- [x] Twitch対応（TwitchChat + TwitchLiveMode）
 - [x] BGM/SE管理（AudioManager + REST API）
 - [ ] シーン管理
 
@@ -295,4 +295,4 @@ pnpm run build      # プロダクションビルド
 
 ---
 
-*最終更新: 2026-02-12 03:35*
+*最終更新: 2026-02-12 04:35*

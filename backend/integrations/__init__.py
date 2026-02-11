@@ -10,11 +10,16 @@ from .obs import (
     OBSWebSocketClient,
 )
 from .youtube import YouTubeChat, YouTubeChatConfig, YouTubeComment
+from .twitch import TwitchChat, TwitchChatConfig, TwitchMessage, TwitchMessageType
 
 __all__ = [
     "YouTubeChat",
     "YouTubeChatConfig",
     "YouTubeComment",
+    "TwitchChat",
+    "TwitchChatConfig",
+    "TwitchMessage",
+    "TwitchMessageType",
     "OBSWebSocketClient",
     "OBSConfig",
     "OBSEventType",

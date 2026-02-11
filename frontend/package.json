@@ -1,0 +1,39 @@
+{
+  "name": "lobby-frontend",
+  "version": "0.1.0",
+  "description": "Lobby AI VTuber - Frontend",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && electron-builder"
+  },
+  "keywords": [
+    "live2d",
+    "vtuber",
+    "ai"
+  ],
+  "author": "watari-ai",
+  "license": "MIT",
+  "dependencies": {
+    "pixi-live2d-display": "^0.4.0",
+    "pixi.js": "^7.4.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.0",
+    "concurrently": "^8.2.0",
+    "csstype": "^3.2.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.21",
+    "wait-on": "^7.2.0"
+  }
+}

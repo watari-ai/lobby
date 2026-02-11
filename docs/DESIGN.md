@@ -233,7 +233,7 @@ lobby/
 - [x] Live2Dパラメータ生成（Live2DLipsyncAnalyzer）
 - [x] WebSocket API（リアルタイムストリーム）
 - [x] 表情プリセット（6種類）
-- [ ] Live2Dレンダリング（フロントエンド）
+- [x] Live2Dレンダリング（フロントエンド）
 - [ ] 物理演算連携
 - [ ] 感情エンジン統合
 
@@ -261,4 +261,37 @@ lobby/
 
 ---
 
-*最終更新: 2026-02-11 19:32*
+## フロントエンド構成
+
+### 技術スタック
+- **フレームワーク:** React 18 + TypeScript
+- **ビルド:** Vite 5
+- **パッケージマネージャ:** pnpm（npm互換性問題あり）
+- **2D描画:** PixiJS 7
+- **Live2D:** pixi-live2d-display（Cubism4対応）
+- **デスクトップ:** Electron（予定）
+
+### コンポーネント構成
+```
+frontend/src/
+├── main.tsx              # エントリーポイント
+├── App.tsx               # メインレイアウト
+├── index.css             # グローバルスタイル
+├── components/
+│   ├── Live2DViewer.tsx  # PixiJS + Live2D描画
+│   └── ControlPanel.tsx  # 表情・パラメータ操作
+└── hooks/
+    └── useLive2DWebSocket.ts  # WebSocket接続
+```
+
+### 開発コマンド
+```bash
+cd frontend
+pnpm install        # 依存関係インストール
+pnpm run dev        # 開発サーバー起動 (localhost:5173)
+pnpm run build      # プロダクションビルド
+```
+
+---
+
+*最終更新: 2026-02-11 20:45*

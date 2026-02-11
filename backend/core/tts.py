@@ -17,7 +17,7 @@ class TTSConfig:
     voice: str = "lobby"  # MioTTS preset_id or OpenAI voice
     api_key: str = "not-needed"
     model: str = ""
-    response_format: str = "mp3"
+    response_format: str = "base64"  # MioTTS: "wav" or "base64" (base64 returns JSON)
 
     # 感情マッピング
     emotion_prompts: dict[str, str] | None = None

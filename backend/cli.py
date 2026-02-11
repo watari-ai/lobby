@@ -31,14 +31,14 @@ def record(
         help="出力ディレクトリ",
     ),
     tts_url: str = typer.Option(
-        "http://localhost:8880/v1",
+        "http://localhost:8001",
         "--tts-url",
-        help="TTS APIのベースURL",
+        help="TTS APIのベースURL（MioTTS: 8001, Qwen3: 8880/v1）",
     ),
     voice: str = typer.Option(
-        "Vivian",
+        "lobby",
         "--voice", "-v",
-        help="使用する音声（Vivian, Ryan, Serena等）",
+        help="使用する音声（MioTTSプリセット: lobby, jp_female等）",
     ),
 ):
     """台本から音声を収録"""
@@ -99,14 +99,14 @@ def record_video(
         help="背景画像パス",
     ),
     tts_url: str = typer.Option(
-        "http://localhost:8880/v1",
+        "http://localhost:8001",
         "--tts-url",
-        help="TTS APIのベースURL",
+        help="TTS APIのベースURL（MioTTS: 8001, Qwen3: 8880/v1）",
     ),
     voice: str = typer.Option(
-        "Vivian",
+        "lobby",
         "--voice", "-v",
-        help="使用する音声",
+        help="使用する音声（MioTTSプリセット: lobby等）",
     ),
     fps: int = typer.Option(
         30,
@@ -173,14 +173,14 @@ def tts_test(
         help="出力ファイルパス",
     ),
     tts_url: str = typer.Option(
-        "http://localhost:8880/v1",
+        "http://localhost:8001",
         "--tts-url",
-        help="TTS APIのベースURL",
+        help="TTS APIのベースURL（MioTTS: 8001, Qwen3: 8880/v1）",
     ),
     voice: str = typer.Option(
-        "Vivian",
+        "lobby",
         "--voice", "-v",
-        help="使用する音声",
+        help="使用する音声（MioTTSプリセット: lobby等）",
     ),
     emotion: str = typer.Option(
         "neutral",

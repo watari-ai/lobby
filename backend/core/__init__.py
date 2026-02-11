@@ -9,7 +9,7 @@ from .avatar import (
     LipsyncConfig,
     MouthShape,
 )
-from .emotion import Emotion, EmotionAnalyzer
+from .emotion import Emotion, EmotionAnalyzer, EmotionResult
 from .live2d import (
     Live2DConfig,
     Live2DExpression,
@@ -18,15 +18,38 @@ from .live2d import (
     Live2DModel,
     Live2DParameters,
 )
-from .pipeline import (
-    LineResult,
-    PipelineConfig,
-    RecordingPipeline,
-    quick_record,
-)
 from .tts import TTSClient, TTSConfig
 from .video import VideoComposer, VideoConfig, get_audio_duration_ms
 from .openclaw import OpenClawClient, OpenClawConfig, LOBBY_SYSTEM_PROMPT
+
+
+# Pipeline は循環参照を避けるため遅延インポート
+def _import_pipeline():
+    from .pipeline import (
+        LineResult,
+        PipelineConfig,
+        RecordingPipeline,
+        quick_record,
+    )
+    return LineResult, PipelineConfig, RecordingPipeline, quick_record
+
+
+# 遅延インポートされるシンボル
+LineResult = None
+PipelineConfig = None
+RecordingPipeline = None
+quick_record = None
+
+
+def __getattr__(name):
+    """遅延インポート対応"""
+    global LineResult, PipelineConfig, RecordingPipeline, quick_record
+    if name in ("LineResult", "PipelineConfig", "RecordingPipeline", "quick_record"):
+        if LineResult is None:
+            LineResult, PipelineConfig, RecordingPipeline, quick_record = _import_pipeline()
+        return {"LineResult": LineResult, "PipelineConfig": PipelineConfig,
+                "RecordingPipeline": RecordingPipeline, "quick_record": quick_record}[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     # TTS
@@ -34,6 +57,7 @@ __all__ = [
     "TTSConfig",
     # Emotion
     "EmotionAnalyzer",
+    "EmotionResult",
     "Emotion",
     # Avatar (PNG)
     "MouthShape",
@@ -54,7 +78,7 @@ __all__ = [
     "VideoComposer",
     "VideoConfig",
     "get_audio_duration_ms",
-    # Pipeline
+    # Pipeline (lazy import)
     "PipelineConfig",
     "LineResult",
     "RecordingPipeline",

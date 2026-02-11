@@ -242,7 +242,7 @@ lobby/
 - [x] ライブモードAPI（REST + WebSocket）
 - [x] YouTubeコメント取得（YouTubeChat, YouTubeLiveMode）
 - [x] OBS出力（OBSWebSocketClient, REST API）
-- [ ] リアルタイム応答テスト（統合テスト）
+- [x] リアルタイム応答テスト（統合テスト）
 
 ### Phase 4: 拡張機能
 - [ ] 3D（VRM）対応
@@ -295,4 +295,4 @@ pnpm run build      # プロダクションビルド
 
 ---
 
-*最終更新: 2026-02-12 01:32*
+*最終更新: 2026-02-12 02:38*

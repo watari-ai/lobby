@@ -241,8 +241,8 @@ lobby/
 - [x] OpenClaw Gateway連携（OpenClawClient, LiveMode）
 - [x] ライブモードAPI（REST + WebSocket）
 - [x] YouTubeコメント取得（YouTubeChat, YouTubeLiveMode）
-- [ ] リアルタイム応答テスト
-- [ ] OBS出力
+- [x] OBS出力（OBSWebSocketClient, REST API）
+- [ ] リアルタイム応答テスト（統合テスト）
 
 ### Phase 4: 拡張機能
 - [ ] 3D（VRM）対応
@@ -295,4 +295,4 @@ pnpm run build      # プロダクションビルド
 
 ---
 
-*最終更新: 2026-02-11 21:35*
+*最終更新: 2026-02-12 01:32*

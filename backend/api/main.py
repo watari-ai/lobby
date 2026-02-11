@@ -9,12 +9,13 @@ from loguru import logger
 
 from .websocket import router as ws_router
 from .live import router as live_router
+from .obs import router as obs_router
 
 # アプリケーション作成
 app = FastAPI(
     title="Lobby",
     description="AI VTuber配信・収録ソフト API",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 # CORS設定（開発用）
@@ -31,6 +32,9 @@ app.include_router(ws_router)
 
 # Live Mode ルーター登録
 app.include_router(live_router)
+
+# OBS ルーター登録
+app.include_router(obs_router)
 
 
 @app.get("/")

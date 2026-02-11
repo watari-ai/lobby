@@ -1,0 +1,24 @@
+# Lobby TTS Configuration
+
+# MioTTS (推奨 - ロビィ専用プリセット)
+provider: miotts
+base_url: http://localhost:8001
+voice: lobby  # プリセットID
+
+# 代替: Qwen3-TTS
+# provider: qwen3-tts
+# base_url: http://localhost:8880/v1
+# voice: ono_anna
+# model: qwen3-tts
+
+# 出力フォーマット
+response_format: mp3
+
+# 感情マッピング（Qwen3-TTS用、MioTTSは現在未対応）
+emotion_prompts:
+  happy: "明るく楽しそうに"
+  sad: "しんみりと悲しげに"
+  excited: "テンション高く興奮して"
+  angry: "怒った声で"
+  surprised: "驚いた声で"
+  neutral: ""

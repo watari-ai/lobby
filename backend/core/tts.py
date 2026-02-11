@@ -1,8 +1,9 @@
-"""TTS (Text-to-Speech) Client - Qwen3-TTS & OpenAI Compatible APIs"""
+"""TTS (Text-to-Speech) Client - Qwen3-TTS, MioTTS & OpenAI Compatible APIs"""
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+import base64
 
 import httpx
 from loguru import logger
@@ -11,11 +12,11 @@ from loguru import logger
 @dataclass
 class TTSConfig:
     """TTS設定"""
-    provider: str = "qwen3-tts"
-    base_url: str = "http://localhost:8880/v1"
-    voice: str = "Vivian"
+    provider: str = "miotts"  # "qwen3-tts", "miotts", or "openai"
+    base_url: str = "http://localhost:8001"
+    voice: str = "lobby"  # MioTTS preset_id or OpenAI voice
     api_key: str = "not-needed"
-    model: str = "qwen3-tts"
+    model: str = ""
     response_format: str = "mp3"
 
     # 感情マッピング
@@ -34,11 +35,11 @@ class TTSConfig:
 
 
 class TTSClient:
-    """OpenAI互換TTS APIクライアント"""
+    """マルチプロバイダーTTS APIクライアント"""
 
     def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig()
-        self._client = httpx.AsyncClient(timeout=60.0)
+        self._client = httpx.AsyncClient(timeout=120.0)
 
     async def synthesize(
         self,
@@ -56,18 +57,64 @@ class TTSClient:
         Returns:
             音声データ（bytes）
         """
+        if self.config.provider == "miotts":
+            audio_data = await self._synthesize_miotts(text, emotion)
+        else:
+            audio_data = await self._synthesize_openai(text, emotion)
+
+        if output_path:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(audio_data)
+            logger.info(f"Audio saved: {output_path}")
+
+        return audio_data
+
+    async def _synthesize_miotts(self, text: str, emotion: str) -> bytes:
+        """MioTTS APIで音声合成"""
+        url = f"{self.config.base_url}/v1/tts"
+
+        payload = {
+            "text": text,
+            "reference": {
+                "type": "preset",
+                "preset_id": self.config.voice,
+            },
+            "output": {
+                "format": self.config.response_format,
+            },
+        }
+
+        logger.debug(f"MioTTS request: {text[:50]}... (preset: {self.config.voice})")
+
+        try:
+            response = await self._client.post(url, json=payload)
+            response.raise_for_status()
+            result = response.json()
+
+            # MioTTSはbase64でオーディオを返す
+            if "audio" in result:
+                audio_b64 = result["audio"]
+                return base64.b64decode(audio_b64)
+            else:
+                raise ValueError(f"Unexpected MioTTS response: {result}")
+
+        except httpx.HTTPError as e:
+            logger.error(f"MioTTS error: {e}")
+            raise
+
+    async def _synthesize_openai(self, text: str, emotion: str) -> bytes:
+        """OpenAI互換APIで音声合成（Qwen3-TTS等）"""
         # 感情プロンプトを適用
         emotion_prompt = self.config.emotion_prompts.get(emotion, "")
         if emotion_prompt:
-            # Qwen3-TTSは指示をテキストの前に追加できる
             full_text = f"[{emotion_prompt}]{text}"
         else:
             full_text = text
 
-        url = f"{self.config.base_url}/audio/speech"
+        url = f"{self.config.base_url}/v1/audio/speech"
 
         payload = {
-            "model": self.config.model,
+            "model": self.config.model or "tts-1",
             "voice": self.config.voice,
             "input": full_text,
             "response_format": self.config.response_format,
@@ -78,32 +125,38 @@ class TTSClient:
             "Content-Type": "application/json",
         }
 
-        logger.debug(f"TTS request: {text[:50]}... (emotion: {emotion})")
+        logger.debug(f"OpenAI TTS request: {text[:50]}... (emotion: {emotion})")
 
         try:
             response = await self._client.post(url, json=payload, headers=headers)
             response.raise_for_status()
-            audio_data = response.content
-
-            if output_path:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_bytes(audio_data)
-                logger.info(f"Audio saved: {output_path}")
-
-            return audio_data
+            return response.content
 
         except httpx.HTTPError as e:
-            logger.error(f"TTS error: {e}")
+            logger.error(f"OpenAI TTS error: {e}")
             raise
 
     async def check_health(self) -> bool:
         """TTSサーバーの状態を確認"""
         try:
-            # OpenAI互換APIはmodelsエンドポイントを持つことが多い
-            response = await self._client.get(f"{self.config.base_url}/models")
+            if self.config.provider == "miotts":
+                response = await self._client.get(f"{self.config.base_url}/health")
+            else:
+                response = await self._client.get(f"{self.config.base_url}/v1/models")
             return response.status_code == 200
         except Exception:
             return False
+
+    async def list_presets(self) -> list[str]:
+        """MioTTSプリセット一覧を取得"""
+        if self.config.provider != "miotts":
+            return []
+        try:
+            response = await self._client.get(f"{self.config.base_url}/v1/presets")
+            response.raise_for_status()
+            return response.json().get("presets", [])
+        except Exception:
+            return []
 
     async def close(self):
         """クライアントを閉じる"""
@@ -114,3 +167,11 @@ class TTSClient:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
+
+
+# デフォルト設定（MioTTS + lobbyプリセット）
+DEFAULT_CONFIG = TTSConfig(
+    provider="miotts",
+    base_url="http://localhost:8001",
+    voice="lobby",
+)

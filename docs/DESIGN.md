@@ -258,6 +258,23 @@ lobby/
 - [x] クリップ切り出し
 - [x] サムネイル自動生成（ハイライトベース、複数サイズ、品質分析）
 
+### Phase 6: Web UI
+設定・制御用Web UI。詳細: `/docs/WEB_UI_DESIGN.md`
+
+**技術スタック:** React + Vite + Tailwind 3.4 + Zustand
+
+**機能:**
+- [x] Tailwind CSS導入（ダークテーマ）
+- [x] Zustand状態管理（カメラ/背景/字幕/オーディオ/エフェクト）
+- [x] レイアウトコンポーネント（Header, Sidebar, StatusBar）
+- [x] カメラパネル（プリセット、ズーム、オフセット、トランジション）
+- [x] 背景パネル（画像/動画/カラー、プリセット）
+- [x] 字幕パネル（フォント、位置、背景）
+- [x] オーディオパネル（BGMプレイヤー、SE）
+- [x] エフェクトパネル（パーティクル、フィルター）
+- [ ] WebSocket API連携（バックエンドとの双方向通信）
+- [ ] リアルタイムプレビュー（Live2Dとの完全同期）
+
 ## 差別化ポイント
 
 | 機能 | Open-LLM-VTuber | OBS + VTube Studio | **Lobby** |

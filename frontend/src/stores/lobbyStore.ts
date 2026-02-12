@@ -59,6 +59,10 @@ interface LobbyStore {
   expression: Expression;
   setExpression: (expression: Expression) => void;
 
+  // Motion
+  currentMotion: string | null;
+  setMotion: (motion: string | null) => void;
+
   // Physics
   physics: PhysicsConfig;
   setPhysics: (config: Partial<PhysicsConfig>) => void;
@@ -247,6 +251,10 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
   // Expression
   expression: 'neutral',
   setExpression: (expression) => set({ expression }),
+
+  // Motion
+  currentMotion: null,
+  setMotion: (currentMotion) => set({ currentMotion }),
 
   // Physics
   physics: {

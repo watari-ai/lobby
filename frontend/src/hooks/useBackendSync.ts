@@ -206,6 +206,7 @@ export function useBackendSync(
   const setConnected = useLobbyStore((state) => state.setConnected);
   const setLive2DParams = useLobbyStore((state) => state.setLive2DParams);
   const setExpression = useLobbyStore((state) => state.setExpression);
+  const setMotion = useLobbyStore((state) => state.setMotion);
   const setSubtitleText = useLobbyStore((state) => state.setSubtitleText);
   const setBackgroundSource = useLobbyStore((state) => state.setBackgroundSource);
   const connected = useLobbyStore((state) => state.connected);
@@ -237,9 +238,9 @@ export function useBackendSync(
             break;
 
           case 'motion':
-            // モーション通知（フロントエンドで再生処理）
-            console.log(`[Motion] ${message.motion}`);
-            // TODO: Live2Dモーション再生処理
+            // モーション通知→Zustandストア経由でLive2DViewerに伝播
+            console.log(`[Motion] Playing: ${message.motion}`);
+            setMotion(message.motion);
             break;
 
           case 'speaking':
@@ -268,7 +269,7 @@ export function useBackendSync(
         console.error('[WebSocket] Failed to parse message:', e);
       }
     },
-    [setLive2DParams, setExpression, setSubtitleText, setBackgroundSource]
+    [setLive2DParams, setExpression, setMotion, setSubtitleText, setBackgroundSource]
   );
 
   // WebSocket接続

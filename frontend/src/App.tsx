@@ -27,7 +27,7 @@ const PANEL_TITLES: Record<PanelType, string> = {
 
 function App() {
   const [activePanel, setActivePanel] = useState<PanelType>('camera');
-  const { physics, subtitle, camera, live2dParams } = useLobbyStore();
+  const { physics, subtitle, camera, live2dParams, currentMotion, setMotion } = useLobbyStore();
   
   // Backend WebSocket sync (auto-reconnect, bidirectional)
   const { connected, reconnect, reconnectAttempts } = useBackend();
@@ -103,6 +103,8 @@ function App() {
               params={live2dParams} 
               physics={physics}
               smoothing={0.25}
+              motion={currentMotion}
+              onMotionComplete={() => setMotion(null)}
             />
             
             {/* Streaming Status Indicator */}

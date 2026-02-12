@@ -39,6 +39,10 @@ interface Live2DViewerProps {
   physics?: PhysicsConfig;
   /** パラメータ補間の滑らかさ (0-1, 1=即時反映, 0.1=ゆっくり) */
   smoothing?: number;
+  /** 再生するモーション名 */
+  motion?: string | null;
+  /** モーション再生完了時のコールバック */
+  onMotionComplete?: () => void;
   /** デバッグモード */
   debug?: boolean;
 }
@@ -85,6 +89,8 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
   modelPath,
   physics = { enabled: true },
   smoothing = 0.3,
+  motion = null,
+  onMotionComplete,
   debug = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -315,6 +321,43 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
       }
     }
   }, [physics, debug]);
+
+  // モーション再生
+  useEffect(() => {
+    if (!motion || !modelRef.current) return;
+    
+    const model = modelRef.current;
+    
+    const playMotion = async () => {
+      try {
+        // pixi-live2d-displayのモーション再生API
+        // グループ名とインデックス、または優先度を指定
+        if (typeof model.motion === 'function') {
+          // モーション名をグループとして解釈（例: "idle", "tap_body"）
+          console.log(`[Live2D] Playing motion: ${motion}`);
+          
+          // モーショングループから再生を試みる
+          await model.motion(motion, 0); // グループ内の最初のモーション
+          
+          if (debug) {
+            console.log(`[Live2D] Motion "${motion}" completed`);
+          }
+          
+          onMotionComplete?.();
+        } else {
+          console.warn('[Live2D] Model does not support motion API');
+        }
+      } catch (e) {
+        // モーションが見つからない場合など
+        if (debug) {
+          console.warn(`[Live2D] Failed to play motion "${motion}":`, e);
+        }
+        onMotionComplete?.();
+      }
+    };
+    
+    playMotion();
+  }, [motion, onMotionComplete, debug]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>

@@ -1,4 +1,11 @@
-import React, { useRef, useEffect, useState } from 'react';
+/**
+ * Live2DViewer - リアルタイムプレビュー対応Live2Dビューア
+ * 
+ * バックエンドからのパラメータストリームをスムーズに反映し、
+ * 60fpsでの滑らかなアニメーションを実現します。
+ */
+
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as PIXI from 'pixi.js';
 
 // Live2D型定義
@@ -14,7 +21,10 @@ interface Live2DParams {
   ParamAngleX?: number;
   ParamAngleY?: number;
   ParamAngleZ?: number;
+  ParamBodyAngleX?: number;
+  ParamBodyAngleY?: number;
   ParamBreath?: number;
+  [key: string]: number | undefined;
 }
 
 interface PhysicsConfig {
@@ -27,6 +37,10 @@ interface Live2DViewerProps {
   params: Live2DParams;
   modelPath?: string;
   physics?: PhysicsConfig;
+  /** パラメータ補間の滑らかさ (0-1, 1=即時反映, 0.1=ゆっくり) */
+  smoothing?: number;
+  /** デバッグモード */
+  debug?: boolean;
 }
 
 // pixi-live2d-displayを動的にロード
@@ -48,16 +62,127 @@ async function loadLive2DLibrary() {
   }
 }
 
+// パラメータIDマッピング（フロントエンド→Live2D SDK）
+const PARAM_ID_MAP: Record<string, string> = {
+  ParamMouthOpenY: 'ParamMouthOpenY',
+  ParamMouthForm: 'ParamMouthForm',
+  ParamEyeLOpen: 'ParamEyeLOpen',
+  ParamEyeROpen: 'ParamEyeROpen',
+  ParamEyeBallX: 'ParamEyeBallX',
+  ParamEyeBallY: 'ParamEyeBallY',
+  ParamBrowLY: 'ParamBrowLY',
+  ParamBrowRY: 'ParamBrowRY',
+  ParamAngleX: 'ParamAngleX',
+  ParamAngleY: 'ParamAngleY',
+  ParamAngleZ: 'ParamAngleZ',
+  ParamBodyAngleX: 'ParamBodyAngleX',
+  ParamBodyAngleY: 'ParamBodyAngleY',
+  ParamBreath: 'ParamBreath',
+};
+
 const Live2DViewer: React.FC<Live2DViewerProps> = ({ 
   params, 
   modelPath,
-  physics = { enabled: true }
+  physics = { enabled: true },
+  smoothing = 0.3,
+  debug = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const modelRef = useRef<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // 補間用の現在値と目標値
+  const currentParamsRef = useRef<Live2DParams>({});
+  const targetParamsRef = useRef<Live2DParams>({});
+  const animationFrameRef = useRef<number | null>(null);
+  const lastUpdateRef = useRef<number>(0);
+  
+  // デバッグ用FPSカウンター
+  const fpsRef = useRef<{ count: number; lastTime: number; fps: number }>({
+    count: 0,
+    lastTime: performance.now(),
+    fps: 0,
+  });
+
+  // パラメータをモデルに適用
+  const applyParams = useCallback((paramValues: Live2DParams) => {
+    if (!modelRef.current?.internalModel?.coreModel) return;
+
+    const coreModel = modelRef.current.internalModel.coreModel;
+    
+    Object.entries(paramValues).forEach(([name, value]) => {
+      if (typeof value !== 'number') return;
+      
+      // パラメータIDを取得（マッピングまたはそのまま）
+      const paramId = PARAM_ID_MAP[name] || name;
+      
+      try {
+        // Cubism SDK 4のcoreModelはsetParameterValueByIdをサポート
+        if (typeof coreModel.setParameterValueById === 'function') {
+          coreModel.setParameterValueById(paramId, value);
+        } else if (typeof coreModel.setParamFloat === 'function') {
+          // 旧SDK互換
+          coreModel.setParamFloat(paramId, value);
+        }
+      } catch (e) {
+        // パラメータが存在しない場合は無視
+        if (debug) {
+          console.warn(`[Live2D] Failed to set param ${paramId}:`, e);
+        }
+      }
+    });
+  }, [debug]);
+
+  // 滑らかな補間アニメーションループ
+  const animationLoop = useCallback(() => {
+    const now = performance.now();
+    const delta = now - lastUpdateRef.current;
+    lastUpdateRef.current = now;
+    
+    // FPSカウント（デバッグ用）
+    if (debug) {
+      fpsRef.current.count++;
+      if (now - fpsRef.current.lastTime >= 1000) {
+        fpsRef.current.fps = fpsRef.current.count;
+        fpsRef.current.count = 0;
+        fpsRef.current.lastTime = now;
+      }
+    }
+    
+    // 補間係数（フレームレート非依存）
+    const t = Math.min(1, smoothing * (delta / 16.67)); // 60fpsを基準
+    
+    // 各パラメータを補間
+    const current = currentParamsRef.current;
+    const target = targetParamsRef.current;
+    let hasChanges = false;
+    
+    Object.keys(target).forEach((key) => {
+      const targetValue = target[key];
+      if (typeof targetValue !== 'number') return;
+      
+      const currentValue = current[key] ?? targetValue;
+      
+      // 補間計算
+      const diff = targetValue - currentValue;
+      if (Math.abs(diff) > 0.001) {
+        current[key] = currentValue + diff * t;
+        hasChanges = true;
+      } else {
+        current[key] = targetValue;
+      }
+    });
+    
+    // 変更があればモデルに適用
+    if (hasChanges || Object.keys(current).length > 0) {
+      applyParams(current);
+    }
+    
+    // 次のフレームをスケジュール
+    animationFrameRef.current = requestAnimationFrame(animationLoop);
+  }, [smoothing, applyParams, debug]);
 
   // PixiJS アプリケーション初期化
   useEffect(() => {
@@ -84,6 +209,7 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
         // デモモデルまたは指定されたモデルをロード
         const path = modelPath || 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
         
+        console.log('[Live2D] Loading model:', path);
         const model = await Model.from(path);
         
         // モデルをステージに追加
@@ -103,24 +229,24 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
         
         // 物理演算の設定
         if (model.internalModel?.physicsManager) {
-          const pm = model.internalModel.physicsManager;
           if (physics.enabled) {
-            // 物理演算を有効化（髪揺れ、呼吸などのアイドルモーション）
-            pm.physicsCubismPhysics?.initialize();
             console.log('[Live2D] Physics enabled');
           }
         }
         
         // アイドルモーション（目パチ、呼吸）を開始
-        if (model.internalModel?.motionManager) {
-          // 自動目パチを有効化
+        if (model.internalModel) {
           model.internalModel.eyeBlink = true;
-          // 呼吸モーションを有効化
           model.internalModel.breath = true;
           console.log('[Live2D] Idle motions enabled (eye blink, breath)');
         }
         
+        // アニメーションループを開始
+        lastUpdateRef.current = performance.now();
+        animationFrameRef.current = requestAnimationFrame(animationLoop);
+        
         setLoading(false);
+        console.log('[Live2D] Model loaded successfully');
       } catch (e: any) {
         console.error('Failed to load Live2D model:', e);
         setError(e.message || 'Failed to load model');
@@ -155,62 +281,62 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      
+      // アニメーションループを停止
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
       if (appRef.current) {
         appRef.current.destroy(true, { children: true });
         appRef.current = null;
       }
     };
-  }, [modelPath]);
+  }, [modelPath, animationLoop, physics.enabled]);
 
-  // パラメータの更新
+  // ターゲットパラメータの更新（props変更時）
   useEffect(() => {
-    if (!modelRef.current?.internalModel?.coreModel) return;
-
-    const coreModel = modelRef.current.internalModel.coreModel;
-    
-    // 各パラメータを設定
-    Object.entries(params).forEach(([name, value]) => {
-      if (typeof value !== 'number') return;
-      
-      const paramId = coreModel.getParameterIndex(name);
-      if (paramId >= 0) {
-        coreModel.setParameterValueById(name, value);
-      }
-    });
+    targetParamsRef.current = { ...params };
   }, [params]);
 
   // 物理演算パラメータの更新
   useEffect(() => {
     if (!modelRef.current?.internalModel?.physicsManager) return;
     
-    const pm = modelRef.current.internalModel.physicsManager;
-    
-    // Cubism SDK の物理演算設定を更新
-    if (pm.physicsCubismPhysics) {
-      // 重力の設定（デフォルト: y=-1でモデル下方向）
-      if (physics?.gravity) {
-        // 物理演算の Gravity ベクトルを設定
-        // Note: pixi-live2d-display では直接アクセスが制限されている場合がある
+    if (physics?.gravity) {
+      if (debug) {
         console.log('[Live2D] Gravity set to:', physics.gravity);
       }
-      
-      // 風の設定（髪やアクセサリーへの影響）
-      if (physics?.wind) {
+    }
+    
+    if (physics?.wind) {
+      if (debug) {
         console.log('[Live2D] Wind set to:', physics.wind);
       }
     }
-  }, [physics]);
+  }, [physics, debug]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
       {loading && (
-        <div className="loading-overlay">
-          Loading Live2D model...
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span>Loading Live2D model...</span>
+          </div>
         </div>
       )}
       {error && (
-        <div className="loading-overlay" style={{ color: '#f44' }}>
-          Error: {error}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-red-400">
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-2xl">⚠️</span>
+            <span>Error: {error}</span>
+          </div>
+        </div>
+      )}
+      {debug && !loading && !error && (
+        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-mono">
+          FPS: {fpsRef.current.fps}
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ import { EffectsPanel } from './components/panels/EffectsPanel';
 import { SettingsPanel } from './components/panels/SettingsPanel';
 import Live2DViewer from './components/Live2DViewer';
 import SubtitleDisplay from './components/SubtitleDisplay';
+import StreamingIndicator from './components/StreamingIndicator';
 import { useLobbyStore } from './stores/lobbyStore';
 import { useBackend } from './contexts/BackendContext';
 
@@ -96,10 +97,16 @@ function App() {
                 : 'none',
             }}
           >
+            {/* Live2D Realtime Preview */}
             <Live2DViewer 
               params={live2dParams} 
-              physics={physics} 
+              physics={physics}
+              smoothing={0.25}
             />
+            
+            {/* Streaming Status Indicator */}
+            <StreamingIndicator position="top-right" detailed={false} />
+            
             {subtitle.enabled && (
               <SubtitleDisplay 
                 position={subtitle.position.vertical === 'middle' ? 'center' : subtitle.position.vertical} 

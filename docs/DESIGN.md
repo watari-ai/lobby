@@ -114,7 +114,7 @@ tts:
 - コメントフィルタリング
 - コメント読み上げキュー管理
 
-## 追加機能（Phase 2以降）
+## 追加機能
 
 ### 7. シーン管理
 - 背景切り替え
@@ -144,9 +144,13 @@ tts:
 - **非同期:** asyncio
 
 ### フロントエンド
-- **フレームワーク:** Electron + React/Vue
-- **レンダリング:** PixiJS（2D）, Three.js（3D）
-- **Live2D:** pixi-live2d-display
+- **フレームワーク:** Electron + React
+- **ビルド:** Vite 5
+- **パッケージマネージャ:** pnpm
+- **レンダリング:** PixiJS 7（2D）, Three.js（3D）
+- **Live2D:** pixi-live2d-display（Cubism4対応）
+- **状態管理:** Zustand
+- **スタイル:** Tailwind CSS 3.4
 
 ### 連携
 - **OpenClaw:** HTTP API（chatCompletions）
@@ -175,10 +179,11 @@ lobby/
 │       └── obs.py
 ├── frontend/
 │   ├── src/
-│   │   ├── components/
-│   │   ├── renderer/     # 2D/3D描画
-│   │   └── views/
-│   └── public/
+│   │   ├── components/   # UIコンポーネント
+│   │   ├── hooks/        # カスタムフック
+│   │   ├── stores/       # Zustand状態管理
+│   │   └── types/        # TypeScript型定義
+│   └── electron/         # Electronメイン/プリロード
 ├── models/               # アバターモデル置き場
 ├── scripts/              # 台本置き場
 ├── config/
@@ -222,14 +227,14 @@ lobby/
 
 ## 開発フェーズ
 
-### Phase 1: MVP（1週間）
+### Phase 1: MVP ✅
 - [x] プロジェクト初期設定
 - [x] 収録モード基本実装
 - [x] Qwen3-TTS統合
 - [x] 基本リップシンク（PNG立ち絵）
 - [x] 動画出力
 
-### Phase 2: Live2D対応（1週間）
+### Phase 2: Live2D対応 ✅
 - [x] Live2Dパラメータ生成（Live2DLipsyncAnalyzer）
 - [x] WebSocket API（リアルタイムストリーム）
 - [x] 表情プリセット（6種類）
@@ -237,20 +242,20 @@ lobby/
 - [x] 感情エンジン統合（EmotionDrivenLive2D）
 - [x] 物理演算連携（目パチ、呼吸、重力・風設定）
 
-### Phase 3: ライブ配信（1週間）
+### Phase 3: ライブ配信 ✅
 - [x] OpenClaw Gateway連携（OpenClawClient, LiveMode）
 - [x] ライブモードAPI（REST + WebSocket）
 - [x] YouTubeコメント取得（YouTubeChat, YouTubeLiveMode）
 - [x] OBS出力（OBSWebSocketClient, REST API）
 - [x] リアルタイム応答テスト（統合テスト）
 
-### Phase 4: 拡張機能
+### Phase 4: 拡張機能 ✅
 - [x] 3D（VRM）対応（VRMController + REST API）
 - [x] Twitch対応（TwitchChat + TwitchLiveMode）
 - [x] BGM/SE管理（AudioManager + REST API）
 - [x] シーン管理（SceneManager + REST API）
 
-### Phase 5: 字幕・アーカイブ
+### Phase 5: 字幕・アーカイブ ✅
 - [x] 字幕生成（SRT/VTT出力、収録モード統合）
 - [x] リアルタイム字幕（ライブモード）
 - [x] 翻訳字幕（多言語対応）
@@ -258,7 +263,7 @@ lobby/
 - [x] クリップ切り出し
 - [x] サムネイル自動生成（ハイライトベース、複数サイズ、品質分析）
 
-### Phase 6: Web UI
+### Phase 6: Web UI ✅
 設定・制御用Web UI。詳細: `/docs/WEB_UI_DESIGN.md`
 
 **技術スタック:** React + Vite + Tailwind 3.4 + Zustand
@@ -278,7 +283,7 @@ lobby/
   - [x] ストリーミング状態インジケーター
   - [x] 60fps対応アニメーションループ
 
-### Phase 7: デスクトップアプリ化
+### Phase 7: デスクトップアプリ化 ✅
 Electron統合によるネイティブデスクトップアプリケーション。
 
 **技術スタック:** Electron 33 + TypeScript + electron-builder
@@ -291,6 +296,8 @@ Electron統合によるネイティブデスクトップアプリケーション
 - [x] macOS/Windows/Linuxビルド設定
 - [x] アプリアイコン作成（SVG→PNG/ICO/ICNS）
 - [x] 自動アップデート機能（electron-updater + GitHub Releases）
+- [x] Live2Dモーション再生（WebSocket経由）
+- [x] フロントエンドビルド最適化（コード分割）
 
 ## 差別化ポイント
 
@@ -306,25 +313,24 @@ Electron統合によるネイティブデスクトップアプリケーション
 
 ## フロントエンド構成
 
-### 技術スタック
-- **フレームワーク:** React 18 + TypeScript
-- **ビルド:** Vite 5
-- **パッケージマネージャ:** pnpm（npm互換性問題あり）
-- **2D描画:** PixiJS 7
-- **Live2D:** pixi-live2d-display（Cubism4対応）
-- **デスクトップ:** Electron（予定）
-
 ### コンポーネント構成
 ```
 frontend/src/
 ├── main.tsx              # エントリーポイント
 ├── App.tsx               # メインレイアウト
-├── index.css             # グローバルスタイル
+├── index.css             # グローバルスタイル（Tailwind）
 ├── components/
 │   ├── Live2DViewer.tsx  # PixiJS + Live2D描画
-│   └── ControlPanel.tsx  # 表情・パラメータ操作
-└── hooks/
-    └── useLive2DWebSocket.ts  # WebSocket接続
+│   ├── ControlPanel.tsx  # 表情・パラメータ操作
+│   ├── SubtitleDisplay.tsx       # 字幕表示
+│   ├── StreamingIndicator.tsx    # 配信状態インジケーター
+│   ├── UpdateNotification.tsx    # アップデート通知
+│   ├── layout/           # レイアウトコンポーネント
+│   └── panels/           # 設定パネル
+├── hooks/
+│   └── useLive2DWebSocket.ts     # WebSocket接続
+├── stores/               # Zustand状態管理
+└── types/                # TypeScript型定義
 ```
 
 ### 開発コマンド
@@ -333,8 +339,10 @@ cd frontend
 pnpm install        # 依存関係インストール
 pnpm run dev        # 開発サーバー起動 (localhost:5173)
 pnpm run build      # プロダクションビルド
+pnpm run electron:dev   # Electron開発モード
+pnpm run electron:build # Electronビルド
 ```
 
 ---
 
-*最終更新: 2026-02-12 18:35*
+*最終更新: 2026-02-12*

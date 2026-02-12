@@ -60,6 +60,14 @@ from .subtitle import (
     SubtitleTrack,
     generate_subtitles_from_recording,
 )
+from .subtitle_translator import (
+    LANGUAGE_NAMES,
+    SubtitleTranslator,
+    TranslationProvider,
+    TranslationResult,
+    TranslatorConfig,
+    translate_subtitle_file,
+)
 
 
 # Pipeline は循環参照を避けるため遅延インポート
@@ -161,4 +169,11 @@ __all__ = [
     "SubtitleGenerator",
     "SubtitleTrack",
     "generate_subtitles_from_recording",
+    # Subtitle Translation
+    "LANGUAGE_NAMES",
+    "SubtitleTranslator",
+    "TranslationProvider",
+    "TranslationResult",
+    "TranslatorConfig",
+    "translate_subtitle_file",
 ]

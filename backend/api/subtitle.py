@@ -1,4 +1,4 @@
-"""Subtitle API - リアルタイム字幕WebSocket + REST API"""
+"""Subtitle API - リアルタイム字幕WebSocket + REST API + 翻訳"""
 
 import asyncio
 from pathlib import Path
@@ -15,6 +15,12 @@ from ..core.live_subtitle import (
     LiveSubtitle,
     SubtitleStyle,
     subtitle_broadcaster,
+)
+from ..core.subtitle_translator import (
+    SubtitleTranslator,
+    TranslatorConfig,
+    TranslationProvider,
+    LANGUAGE_NAMES,
 )
 
 router = APIRouter()
@@ -245,4 +251,225 @@ async def get_subtitle_styles():
             "surprise": "excited",
             "neutral": "normal",
         },
+    }
+
+
+# --- Translation Endpoints ---
+
+class TranslateTextRequest(BaseModel):
+    """テキスト翻訳リクエスト"""
+    text: str
+    source_lang: str = "ja"
+    target_lang: str = "en"
+    context: Optional[list[str]] = None
+
+
+class TranslateHistoryRequest(BaseModel):
+    """履歴翻訳リクエスト"""
+    target_lang: str = "en"
+    source_lang: str = "ja"
+
+
+class TranslatorConfigRequest(BaseModel):
+    """翻訳設定リクエスト"""
+    provider: str = "openclaw"
+    openclaw_url: str = "http://localhost:18789"
+    deepl_api_key: Optional[str] = None
+    batch_size: int = 10
+    context_lines: int = 2
+    formal: bool = False
+
+
+# グローバル翻訳器インスタンス
+_translator: Optional[SubtitleTranslator] = None
+
+
+def get_translator(config: Optional[TranslatorConfigRequest] = None) -> SubtitleTranslator:
+    """翻訳器インスタンス取得"""
+    global _translator
+    if _translator is None or config is not None:
+        translator_config = TranslatorConfig(
+            provider=TranslationProvider(config.provider) if config else TranslationProvider.OPENCLAW,
+            openclaw_url=config.openclaw_url if config else "http://localhost:18789",
+            deepl_api_key=config.deepl_api_key if config else "",
+            batch_size=config.batch_size if config else 10,
+            context_lines=config.context_lines if config else 2,
+            formal=config.formal if config else False,
+        )
+        _translator = SubtitleTranslator(translator_config)
+    return _translator
+
+
+@router.get("/api/subtitle/translate/languages")
+async def get_supported_languages():
+    """サポートされている言語一覧"""
+    return {
+        "languages": LANGUAGE_NAMES,
+        "default_source": "ja",
+        "default_target": "en",
+    }
+
+
+@router.post("/api/subtitle/translate/text")
+async def translate_text(request: TranslateTextRequest):
+    """テキストを翻訳
+
+    Args:
+        request: 翻訳リクエスト
+
+    Returns:
+        翻訳結果
+    """
+    translator = get_translator()
+    
+    result = await translator.translate_text(
+        text=request.text,
+        source_lang=request.source_lang,
+        target_lang=request.target_lang,
+        context=request.context,
+    )
+    
+    return {
+        "original": result.original,
+        "translated": result.translated,
+        "source_lang": result.source_lang,
+        "target_lang": result.target_lang,
+        "confidence": result.confidence,
+    }
+
+
+@router.post("/api/subtitle/translate/history")
+async def translate_history(request: TranslateHistoryRequest):
+    """字幕履歴を翻訳
+
+    現在の履歴を指定言語に翻訳して返す。
+
+    Args:
+        request: 翻訳リクエスト
+
+    Returns:
+        翻訳された履歴
+    """
+    history = subtitle_broadcaster.manager.history
+    if not history:
+        return {
+            "translated": [],
+            "count": 0,
+            "target_lang": request.target_lang,
+        }
+    
+    translator = get_translator()
+    
+    # テキストを抽出
+    texts = [s.text for s in history]
+    
+    # バッチ翻訳
+    translations = await translator.translate_batch(
+        texts=texts,
+        source_lang=request.source_lang,
+        target_lang=request.target_lang,
+    )
+    
+    # 結果を構築
+    translated_history = []
+    for i, subtitle in enumerate(history):
+        translated_history.append({
+            "id": subtitle.id,
+            "original": subtitle.text,
+            "translated": translations[i].translated,
+            "speaker": subtitle.speaker,
+            "start_time": subtitle.start_time,
+            "end_time": subtitle.end_time,
+            "confidence": translations[i].confidence,
+        })
+    
+    return {
+        "translated": translated_history,
+        "count": len(translated_history),
+        "source_lang": request.source_lang,
+        "target_lang": request.target_lang,
+    }
+
+
+@router.post("/api/subtitle/translate/export")
+async def export_translated_subtitles(
+    target_lang: str = "en",
+    source_lang: str = "ja",
+    format: str = "srt",
+):
+    """字幕履歴を翻訳してエクスポート
+
+    Args:
+        target_lang: 翻訳先言語
+        source_lang: 元言語
+        format: 出力フォーマット（srt/vtt）
+
+    Returns:
+        翻訳された字幕ファイル内容
+    """
+    from ..core.subtitle import SubtitleTrack, SubtitleFormat
+    
+    history = subtitle_broadcaster.manager.history
+    if not history:
+        raise HTTPException(status_code=400, detail="No subtitle history")
+    
+    translator = get_translator()
+    
+    # 元のトラックを作成
+    track = SubtitleTrack(language=source_lang)
+    
+    for subtitle in history:
+        # LiveSubtitleのタイムスタンプをミリ秒に変換
+        start_ms = int(subtitle.start_time * 1000) if subtitle.start_time else 0
+        end_ms = int(subtitle.end_time * 1000) if subtitle.end_time else start_ms + subtitle.duration_ms
+        
+        track.add_entry(
+            text=subtitle.text,
+            start_ms=start_ms,
+            end_ms=end_ms,
+            speaker=subtitle.speaker,
+        )
+    
+    # 翻訳
+    translated_track = await translator.translate_track(track, target_lang)
+    
+    # エクスポート
+    fmt = SubtitleFormat.VTT if format.lower() == "vtt" else SubtitleFormat.SRT
+    if fmt == SubtitleFormat.VTT:
+        content = translated_track.to_vtt()
+    else:
+        content = translated_track.to_srt()
+    
+    return {
+        "format": format,
+        "target_lang": target_lang,
+        "content": content,
+        "entry_count": len(translated_track.entries),
+    }
+
+
+@router.post("/api/subtitle/translate/config")
+async def configure_translator(config: TranslatorConfigRequest):
+    """翻訳器の設定を更新
+
+    Args:
+        config: 翻訳設定
+
+    Returns:
+        更新結果
+    """
+    global _translator
+    
+    # 既存の翻訳器をクローズ
+    if _translator:
+        await _translator.close()
+    
+    # 新しい設定で再作成
+    _translator = get_translator(config)
+    
+    return {
+        "status": "configured",
+        "provider": config.provider,
+        "openclaw_url": config.openclaw_url,
+        "batch_size": config.batch_size,
     }

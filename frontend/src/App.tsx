@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Header } from './components/layout/Header';
 import { Sidebar, type PanelType } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
@@ -7,9 +7,11 @@ import { BackgroundPanel } from './components/panels/BackgroundPanel';
 import { SubtitlePanel } from './components/panels/SubtitlePanel';
 import { AudioPanel } from './components/panels/AudioPanel';
 import { EffectsPanel } from './components/panels/EffectsPanel';
+import { SettingsPanel } from './components/panels/SettingsPanel';
 import Live2DViewer from './components/Live2DViewer';
 import SubtitleDisplay from './components/SubtitleDisplay';
 import { useLobbyStore } from './stores/lobbyStore';
+import { useBackend } from './contexts/BackendContext';
 
 // Panel title mapping
 const PANEL_TITLES: Record<PanelType, string> = {
@@ -23,18 +25,10 @@ const PANEL_TITLES: Record<PanelType, string> = {
 
 function App() {
   const [activePanel, setActivePanel] = useState<PanelType>('camera');
-  const { setConnected, physics, subtitle, camera } = useLobbyStore();
-
-  // WebSocket connection
-  useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/ws/live2d');
-    
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-    ws.onerror = () => setConnected(false);
-    
-    return () => ws.close();
-  }, [setConnected]);
+  const { physics, subtitle, camera, live2dParams } = useLobbyStore();
+  
+  // Backend WebSocket sync (auto-reconnect, bidirectional)
+  const { connected, reconnect, reconnectAttempts } = useBackend();
 
   const renderPanel = () => {
     switch (activePanel) {
@@ -49,11 +43,7 @@ function App() {
       case 'effects':
         return <EffectsPanel />;
       case 'settings':
-        return (
-          <div className="p-4">
-            <p className="text-muted-foreground">Settings panel coming soon...</p>
-          </div>
-        );
+        return <SettingsPanel />;
       default:
         return null;
     }
@@ -80,6 +70,21 @@ function App() {
         
         {/* Preview Area */}
         <main className="flex-1 flex flex-col p-4 overflow-hidden">
+          {/* Connection Status Banner */}
+          {!connected && (
+            <div className="mb-2 px-3 py-2 bg-yellow-500/20 border border-yellow-500/50 rounded-lg flex items-center justify-between">
+              <span className="text-yellow-200 text-sm">
+                ⚠️ Backend disconnected {reconnectAttempts > 0 && `(retry ${reconnectAttempts}/10)`}
+              </span>
+              <button
+                onClick={reconnect}
+                className="px-2 py-1 text-xs bg-yellow-600 hover:bg-yellow-500 rounded transition-colors"
+              >
+                Reconnect
+              </button>
+            </div>
+          )}
+          
           <div 
             className="flex-1 relative rounded-lg overflow-hidden"
             style={{ 
@@ -92,7 +97,7 @@ function App() {
             }}
           >
             <Live2DViewer 
-              params={useLobbyStore.getState().live2dParams} 
+              params={live2dParams} 
               physics={physics} 
             />
             {subtitle.enabled && (

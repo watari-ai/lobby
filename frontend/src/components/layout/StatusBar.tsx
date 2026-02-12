@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Circle } from 'lucide-react';
 import { useLobbyStore } from '../../stores/lobbyStore';
+import { useBackend } from '../../contexts/BackendContext';
 import { cn } from '../../lib/utils';
 
 export function StatusBar() {
-  const { connected, camera, audio, subtitle } = useLobbyStore();
+  const { camera, audio, subtitle, expression } = useLobbyStore();
+  const { connected, reconnectAttempts } = useBackend();
   const [fps, setFps] = useState(60);
-  const [cpu, setCpu] = useState(0);
 
   // Simple FPS counter simulation
   useEffect(() => {
@@ -28,6 +29,12 @@ export function StatusBar() {
     return () => cancelAnimationFrame(animId);
   }, []);
 
+  const connectionStatus = connected 
+    ? 'Connected' 
+    : reconnectAttempts > 0 
+      ? `Reconnecting (${reconnectAttempts}/10)` 
+      : 'Disconnected';
+
   return (
     <footer className="h-8 border-t border-border bg-background/95 flex items-center justify-between px-4 text-xs text-muted-foreground">
       <div className="flex items-center gap-4">
@@ -35,11 +42,12 @@ export function StatusBar() {
           <Circle
             className={cn(
               "w-2 h-2 fill-current",
-              connected ? "text-green-500" : "text-red-500"
+              connected ? "text-green-500" : reconnectAttempts > 0 ? "text-yellow-500" : "text-red-500"
             )}
           />
-          <span>Backend: localhost:8000</span>
+          <span>Backend: {connectionStatus}</span>
         </div>
+        <span className="text-primary/70">Expression: {expression}</span>
       </div>
       
       <div className="flex items-center gap-4">

@@ -208,7 +208,7 @@ export function SubtitleDisplay({
       )}
 
       {/* 接続状態インジケーター（デバッグ用、本番では非表示） */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <div
           style={{
             position: 'fixed',

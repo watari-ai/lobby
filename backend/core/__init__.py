@@ -81,6 +81,14 @@ from .clip import (
     ClipManager,
     ClipResult,
 )
+from .thumbnail import (
+    FrameQuality,
+    ThumbnailConfig,
+    ThumbnailGenerator,
+    ThumbnailManager,
+    ThumbnailResult,
+    ThumbnailSize,
+)
 
 
 # Pipeline は循環参照を避けるため遅延インポート
@@ -200,4 +208,11 @@ __all__ = [
     "ClipExtractor",
     "ClipManager",
     "ClipResult",
+    # Thumbnail Generation
+    "FrameQuality",
+    "ThumbnailConfig",
+    "ThumbnailGenerator",
+    "ThumbnailManager",
+    "ThumbnailResult",
+    "ThumbnailSize",
 ]

@@ -16,6 +16,7 @@ from .vrm import router as vrm_router
 from .subtitle import router as subtitle_router
 from .highlight import router as highlight_router
 from .clip import router as clip_router
+from .thumbnail import router as thumbnail_router
 
 # アプリケーション作成
 app = FastAPI(
@@ -59,6 +60,9 @@ app.include_router(highlight_router)
 
 # Clip ルーター登録
 app.include_router(clip_router)
+
+# Thumbnail ルーター登録
+app.include_router(thumbnail_router)
 
 
 @app.get("/")

@@ -11,6 +11,7 @@ import { SettingsPanel } from './components/panels/SettingsPanel';
 import Live2DViewer from './components/Live2DViewer';
 import SubtitleDisplay from './components/SubtitleDisplay';
 import StreamingIndicator from './components/StreamingIndicator';
+import { UpdateNotification } from './components/UpdateNotification';
 import { useLobbyStore } from './stores/lobbyStore';
 import { useBackend } from './contexts/BackendContext';
 
@@ -151,6 +152,9 @@ function App() {
       </div>
       
       <StatusBar />
+      
+      {/* Auto-update notification (Electron only) */}
+      <UpdateNotification />
     </div>
   );
 }

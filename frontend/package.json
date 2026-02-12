@@ -23,6 +23,7 @@
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.7.3",
     "lucide-react": "^0.563.0",
     "pixi-live2d-display": "^0.4.0",
     "pixi.js": "^7.4.2",
@@ -60,16 +61,30 @@
     ],
     "mac": {
       "category": "public.app-category.entertainment",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "assets/icon.icns"
     },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "assets/icon.ico"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "assets/icon.png"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "watari-ai",
+      "repo": "lobby"
     }
   }
 }

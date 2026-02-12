@@ -22,9 +22,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Overlay mode
   setAlwaysOnTop: (value: boolean) => ipcRenderer.send('window-set-always-on-top', value),
   setOpacity: (value: number) => ipcRenderer.send('window-set-opacity', value),
+  
+  // Auto-updater
+  updater: {
+    check: () => ipcRenderer.invoke('updater-check'),
+    download: () => ipcRenderer.invoke('updater-download'),
+    install: () => ipcRenderer.send('updater-install'),
+    onStatus: (callback: (status: UpdaterStatus) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: UpdaterStatus) => callback(status);
+      ipcRenderer.on('updater-status', handler);
+      return () => ipcRenderer.removeListener('updater-status', handler);
+    },
+  },
 });
 
 // TypeScript declaration for the exposed API
+export interface UpdaterStatus {
+  status: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  releaseDate?: string;
+  releaseNotes?: string | { [key: string]: string };
+  progress?: {
+    percent: number;
+    bytesPerSecond: number;
+    transferred: number;
+    total: number;
+  };
+  message?: string;
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -39,6 +65,12 @@ declare global {
       close: () => void;
       setAlwaysOnTop: (value: boolean) => void;
       setOpacity: (value: number) => void;
+      updater: {
+        check: () => Promise<{ success: boolean; version?: string; error?: string }>;
+        download: () => Promise<{ success: boolean; error?: string }>;
+        install: () => void;
+        onStatus: (callback: (status: UpdaterStatus) => void) => () => void;
+      };
     };
   }
 }

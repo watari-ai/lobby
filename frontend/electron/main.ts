@@ -6,6 +6,7 @@
  */
 
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -14,6 +15,10 @@ if (require('electron-squirrel-startup')) {
 }
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+// Configure auto-updater
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -124,4 +129,105 @@ ipcMain.on('window-set-always-on-top', (_, value: boolean) => {
 // Set window opacity (for overlay mode)
 ipcMain.on('window-set-opacity', (_, value: number) => {
   mainWindow?.setOpacity(Math.max(0.1, Math.min(1.0, value)));
+});
+
+// ============================================
+// Auto-Updater
+// ============================================
+
+function setupAutoUpdater(): void {
+  if (isDev) {
+    console.log('Auto-updater disabled in development mode');
+    return;
+  }
+
+  // Check for updates on startup
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error('Failed to check for updates:', err);
+  });
+
+  // Check for updates periodically (every 4 hours)
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error('Failed to check for updates:', err);
+    });
+  }, 4 * 60 * 60 * 1000);
+}
+
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for updates...');
+  mainWindow?.webContents.send('updater-status', { status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info.version);
+  mainWindow?.webContents.send('updater-status', {
+    status: 'available',
+    version: info.version,
+    releaseDate: info.releaseDate,
+    releaseNotes: info.releaseNotes,
+  });
+});
+
+autoUpdater.on('update-not-available', () => {
+  console.log('No updates available');
+  mainWindow?.webContents.send('updater-status', { status: 'not-available' });
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  console.log(`Download progress: ${progress.percent.toFixed(1)}%`);
+  mainWindow?.webContents.send('updater-status', {
+    status: 'downloading',
+    progress: {
+      percent: progress.percent,
+      bytesPerSecond: progress.bytesPerSecond,
+      transferred: progress.transferred,
+      total: progress.total,
+    },
+  });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded:', info.version);
+  mainWindow?.webContents.send('updater-status', {
+    status: 'downloaded',
+    version: info.version,
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Auto-updater error:', err);
+  mainWindow?.webContents.send('updater-status', {
+    status: 'error',
+    message: err.message,
+  });
+});
+
+// IPC handlers for updater control
+ipcMain.handle('updater-check', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, version: result?.updateInfo?.version };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle('updater-download', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.on('updater-install', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+// Initialize auto-updater after app is ready
+app.whenReady().then(() => {
+  setupAutoUpdater();
 });

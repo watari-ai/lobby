@@ -15,6 +15,13 @@
   <a href="#documentation">Documentation</a>
 </p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.0--rc-blue" alt="Version">
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python">
+  <img src="https://img.shields.io/badge/tests-274%20passed-green" alt="Tests">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+</p>
+
 ---
 
 ## 🎯 概要
@@ -117,11 +124,10 @@ lobby live --youtube --channel-id YOUR_CHANNEL_ID
 
 ## 📖 Documentation
 
-- [設計書](docs/DESIGN.md)
-- [台本フォーマット](docs/SCRIPT_FORMAT.md)
-- [感情エンジン](docs/EMOTION_ENGINE.md)
-- [TTS設定](docs/TTS_CONFIG.md)
-- [アバター設定](docs/AVATAR_CONFIG.md)
+- [設計書](docs/DESIGN.md) - アーキテクチャと機能詳細
+- [チュートリアル](docs/TUTORIAL.md) - ステップバイステップ導入ガイド
+- [APIリファレンス](docs/API_REFERENCE.md) - REST/WebSocket API仕様
+- [Web UI設計](docs/WEB_UI_DESIGN.md) - フロントエンド構成
 
 ## 🏗️ アーキテクチャ
 

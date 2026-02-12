@@ -278,6 +278,20 @@ lobby/
   - [x] ストリーミング状態インジケーター
   - [x] 60fps対応アニメーションループ
 
+### Phase 7: デスクトップアプリ化
+Electron統合によるネイティブデスクトップアプリケーション。
+
+**技術スタック:** Electron 33 + TypeScript + electron-builder
+
+**機能:**
+- [x] Electronメインプロセス（main.ts）
+- [x] Preloadスクリプト（セキュアIPC）
+- [x] ウィンドウ管理（最小化/最大化/閉じる）
+- [x] オーバーレイモード対応（常に最前面、透過度調整）
+- [x] macOS/Windows/Linuxビルド設定
+- [ ] アプリアイコン作成
+- [ ] 自動アップデート機能
+
 ## 差別化ポイント
 
 | 機能 | Open-LLM-VTuber | OBS + VTube Studio | **Lobby** |

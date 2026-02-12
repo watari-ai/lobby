@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.vrm import (
     VRMController,
@@ -32,14 +32,13 @@ class LoadModelRequest(BaseModel):
 
 class LoadModelResponse(BaseModel):
     """Response after loading a model."""
+    model_config = ConfigDict(populate_by_name=True)
+    
     success: bool
     vrm_version: str = Field(alias="vrmVersion")
     title: str
     author: str
     expression_count: int = Field(alias="expressionCount")
-    
-    class Config:
-        populate_by_name = True
 
 
 class SetEmotionRequest(BaseModel):
@@ -67,34 +66,31 @@ class ExpressionStateResponse(BaseModel):
 
 class LookAtResponse(BaseModel):
     """Response with look-at state."""
+    model_config = ConfigDict(populate_by_name=True)
+    
     target_x: float = Field(alias="targetX")
     target_y: float = Field(alias="targetY")
-    
-    class Config:
-        populate_by_name = True
 
 
 class VRMStateResponse(BaseModel):
     """Full VRM state response."""
+    model_config = ConfigDict(populate_by_name=True)
+    
     expressions: dict[str, float]
     look_at: dict[str, float] = Field(alias="lookAt")
     bone_rotations: list[dict[str, Any]] = Field(alias="boneRotations")
-    
-    class Config:
-        populate_by_name = True
 
 
 class ModelInfoResponse(BaseModel):
     """VRM model information response."""
+    model_config = ConfigDict(populate_by_name=True)
+    
     loaded: bool
     path: str | None = None
     vrm_version: str | None = Field(default=None, alias="vrmVersion")
     title: str | None = None
     author: str | None = None
     expressions: list[str] = []
-    
-    class Config:
-        populate_by_name = True
 
 
 class AvailablePresetsResponse(BaseModel):

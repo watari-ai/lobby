@@ -1,0 +1,9 @@
+# Hello Lobby - サンプル台本
+# 収録モードのシンプルな例
+
+おはロビィ！
+[happy] 僕、倉土ロビィっす！
+[excited] 今日からLobbyでVTuberデビューっすよ！
+[neutral] このソフト、OpenClawと連携できるんす。
+[happy] みんなもぜひ使ってみてほしいっす！
+[excited] それじゃ、またね！バイバイ！

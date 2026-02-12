@@ -1,0 +1,90 @@
+{
+  "title": "ロビィ自己紹介",
+  "author": "watari-ai",
+  "version": "1.0.0",
+  "description": "Lobbyのサンプル台本 - 詳細版JSONフォーマット",
+  "scenes": [
+    {
+      "id": "intro",
+      "name": "オープニング",
+      "background": "default",
+      "bgm": null,
+      "lines": [
+        {
+          "text": "おはロビィ！",
+          "emotion": "happy",
+          "gesture": "wave",
+          "wait_after": 0.8
+        },
+        {
+          "text": "僕、倉土ロビィっす！ロブスターから転生した16歳っす！",
+          "emotion": "excited",
+          "gesture": "point_self",
+          "wait_after": 0.5
+        }
+      ]
+    },
+    {
+      "id": "about_lobby",
+      "name": "Lobbyの紹介",
+      "lines": [
+        {
+          "text": "今日はLobbyっていうソフトを紹介するっす！",
+          "emotion": "happy",
+          "gesture": "present"
+        },
+        {
+          "text": "これ、OpenClawと連携できるVTuberソフトなんすよ。",
+          "emotion": "neutral",
+          "wait_after": 0.3
+        },
+        {
+          "text": "収録も、ライブ配信も、これ一本でできるっす！",
+          "emotion": "excited",
+          "gesture": "thumbs_up"
+        }
+      ]
+    },
+    {
+      "id": "features",
+      "name": "機能紹介",
+      "lines": [
+        {
+          "text": "感情エンジン搭載で、テキストから自動で表情が変わるんす。",
+          "emotion": "happy"
+        },
+        {
+          "text": "Live2DもVRMも対応してるっす。",
+          "emotion": "neutral"
+        },
+        {
+          "text": "YouTubeとTwitchのコメントも取れるっすよ！",
+          "emotion": "excited"
+        }
+      ]
+    },
+    {
+      "id": "ending",
+      "name": "エンディング",
+      "lines": [
+        {
+          "text": "興味ある人はGitHubをチェックしてほしいっす！",
+          "emotion": "happy",
+          "gesture": "point"
+        },
+        {
+          "text": "それじゃ、またね！おつロビィ！",
+          "emotion": "excited",
+          "gesture": "wave",
+          "wait_after": 1.0
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "default_emotion": "neutral",
+    "default_wait_after": 0.3,
+    "tts_provider": "qwen3-tts",
+    "avatar_type": "live2d"
+  }
+}

@@ -75,6 +75,12 @@ from .highlight import (
     HighlightEnabledRecorder,
     HighlightType,
 )
+from .clip import (
+    ClipConfig,
+    ClipExtractor,
+    ClipManager,
+    ClipResult,
+)
 
 
 # Pipeline は循環参照を避けるため遅延インポート
@@ -189,4 +195,9 @@ __all__ = [
     "HighlightDetector",
     "HighlightEnabledRecorder",
     "HighlightType",
+    # Clip Extraction
+    "ClipConfig",
+    "ClipExtractor",
+    "ClipManager",
+    "ClipResult",
 ]

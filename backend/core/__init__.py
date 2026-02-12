@@ -68,6 +68,13 @@ from .subtitle_translator import (
     TranslatorConfig,
     translate_subtitle_file,
 )
+from .highlight import (
+    Highlight,
+    HighlightConfig,
+    HighlightDetector,
+    HighlightEnabledRecorder,
+    HighlightType,
+)
 
 
 # Pipeline は循環参照を避けるため遅延インポート
@@ -176,4 +183,10 @@ __all__ = [
     "TranslationResult",
     "TranslatorConfig",
     "translate_subtitle_file",
+    # Highlight Detection
+    "Highlight",
+    "HighlightConfig",
+    "HighlightDetector",
+    "HighlightEnabledRecorder",
+    "HighlightType",
 ]

@@ -75,7 +75,7 @@ interface LobbyStore {
 export const useLobbyStore = create<LobbyStore>((set) => ({
   // Connection
   connected: false,
-  backendUrl: 'ws://localhost:8000',
+  backendUrl: 'ws://localhost:8100',
   setConnected: (connected) => set({ connected }),
 
   // Camera - Default: full body view

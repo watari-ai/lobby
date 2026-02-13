@@ -8,13 +8,12 @@ Scene Manager for Lobby - AI VTuber配信ソフト
 - シーンプリセット
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, Any
-from enum import Enum
-import json
-import asyncio
 import inspect
+import json
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 
 class CameraAngle(Enum):
@@ -183,14 +182,14 @@ class Scene:
 
 class SceneManager:
     """シーンマネージャー"""
-    
+
     def __init__(self, config_dir: Optional[Path] = None):
         self.config_dir = config_dir or Path("config/scenes")
         self.scenes: dict[str, Scene] = {}
         self.current_scene: Optional[Scene] = None
         self._callbacks: list[callable] = []
         self._init_default_scenes()
-    
+
     def _init_default_scenes(self):
         """デフォルトシーンを初期化"""
         # トーク用シーン（デフォルト）
@@ -209,7 +208,7 @@ class SceneManager:
                 )
             ]
         )
-        
+
         # リアクション用シーン（アップ）
         self.scenes["reaction"] = Scene(
             name="reaction",
@@ -217,7 +216,7 @@ class SceneManager:
             camera=CameraSettings.preset(CameraAngle.CLOSE_UP),
             overlays=[]
         )
-        
+
         # ゲーム配信シーン
         self.scenes["gaming"] = Scene(
             name="gaming",
@@ -232,7 +231,7 @@ class SceneManager:
             avatar_scale=0.4,
             overlays=[]
         )
-        
+
         # オープニング/エンディング
         self.scenes["opening"] = Scene(
             name="opening",
@@ -250,13 +249,13 @@ class SceneManager:
                 )
             ]
         )
-        
+
         self.current_scene = self.scenes["talk"]
-    
+
     def on_scene_change(self, callback: callable):
         """シーン変更時のコールバックを登録"""
         self._callbacks.append(callback)
-    
+
     async def _notify_callbacks(self, scene: Scene, transition: str = "fade"):
         """コールバックを通知"""
         for callback in self._callbacks:
@@ -264,42 +263,42 @@ class SceneManager:
                 await callback(scene, transition)
             else:
                 callback(scene, transition)
-    
+
     def get_scene(self, name: str) -> Optional[Scene]:
         """シーンを取得"""
         return self.scenes.get(name)
-    
+
     def list_scenes(self) -> list[str]:
         """シーン一覧を取得"""
         return list(self.scenes.keys())
-    
+
     def get_current_scene(self) -> Optional[Scene]:
         """現在のシーンを取得"""
         return self.current_scene
-    
+
     async def switch_scene(self, name: str, transition: str = "fade") -> bool:
         """シーンを切り替え"""
         if name not in self.scenes:
             return False
-        
+
         self.current_scene = self.scenes[name]
         await self._notify_callbacks(self.current_scene, transition)
         return True
-    
+
     def add_scene(self, scene: Scene) -> bool:
         """シーンを追加"""
         if scene.name in self.scenes:
             return False
         self.scenes[scene.name] = scene
         return True
-    
+
     def update_scene(self, name: str, updates: dict) -> bool:
         """シーンを更新"""
         if name not in self.scenes:
             return False
-        
+
         scene = self.scenes[name]
-        
+
         if "background" in updates:
             scene.background = Background.from_dict(updates["background"])
         if "camera" in updates:
@@ -312,30 +311,30 @@ class SceneManager:
             scene.avatar_position = tuple(updates["avatar_position"])
         if "avatar_scale" in updates:
             scene.avatar_scale = updates["avatar_scale"]
-        
+
         return True
-    
+
     def delete_scene(self, name: str) -> bool:
         """シーンを削除（デフォルトシーンは削除不可）"""
         if name in ["talk", "reaction", "gaming", "opening"]:
             return False
         if name not in self.scenes:
             return False
-        
+
         del self.scenes[name]
         if self.current_scene and self.current_scene.name == name:
             self.current_scene = self.scenes["talk"]
         return True
-    
+
     # カメラ操作
-    async def set_camera(self, angle: Optional[CameraAngle] = None, 
+    async def set_camera(self, angle: Optional[CameraAngle] = None,
                          zoom: Optional[float] = None,
                          offset_x: Optional[float] = None,
                          offset_y: Optional[float] = None) -> bool:
         """カメラ設定を変更"""
         if not self.current_scene:
             return False
-        
+
         camera = self.current_scene.camera
         if angle:
             camera.angle = angle
@@ -345,39 +344,39 @@ class SceneManager:
             camera.offset_x = max(-1.0, min(1.0, offset_x))
         if offset_y is not None:
             camera.offset_y = max(-1.0, min(1.0, offset_y))
-        
+
         await self._notify_callbacks(self.current_scene, "instant")
         return True
-    
+
     # オーバーレイ操作
     def add_overlay(self, overlay: Overlay) -> bool:
         """オーバーレイを追加"""
         if not self.current_scene:
             return False
-        
+
         # 同じIDがあれば削除
         self.current_scene.overlays = [
             o for o in self.current_scene.overlays if o.id != overlay.id
         ]
         self.current_scene.overlays.append(overlay)
         return True
-    
+
     def remove_overlay(self, overlay_id: str) -> bool:
         """オーバーレイを削除"""
         if not self.current_scene:
             return False
-        
+
         before = len(self.current_scene.overlays)
         self.current_scene.overlays = [
             o for o in self.current_scene.overlays if o.id != overlay_id
         ]
         return len(self.current_scene.overlays) < before
-    
+
     def update_overlay(self, overlay_id: str, updates: dict) -> bool:
         """オーバーレイを更新"""
         if not self.current_scene:
             return False
-        
+
         for overlay in self.current_scene.overlays:
             if overlay.id == overlay_id:
                 if "content" in updates:
@@ -390,7 +389,7 @@ class SceneManager:
                     overlay.style.update(updates["style"])
                 return True
         return False
-    
+
     def show_caption(self, text: str, duration_ms: int = 3000) -> str:
         """字幕（テロップ）を表示"""
         caption_id = f"caption_{id(text)}"
@@ -410,30 +409,30 @@ class SceneManager:
         )
         self.add_overlay(overlay)
         return caption_id
-    
+
     # 保存/読み込み
     def save_scenes(self, filepath: Optional[Path] = None) -> bool:
         """シーン設定を保存"""
         path = filepath or self.config_dir / "scenes.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         data = {name: scene.to_dict() for name, scene in self.scenes.items()}
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         return True
-    
+
     def load_scenes(self, filepath: Optional[Path] = None) -> bool:
         """シーン設定を読み込み"""
         path = filepath or self.config_dir / "scenes.json"
         if not path.exists():
             return False
-        
+
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        
+
         for name, scene_data in data.items():
             self.scenes[name] = Scene.from_dict(scene_data)
-        
+
         return True
 
 

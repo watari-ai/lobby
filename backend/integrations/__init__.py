@@ -9,8 +9,8 @@ from .obs import (
     OBSEventType,
     OBSWebSocketClient,
 )
-from .youtube import YouTubeChat, YouTubeChatConfig, YouTubeComment
 from .twitch import TwitchChat, TwitchChatConfig, TwitchMessage, TwitchMessageType
+from .youtube import YouTubeChat, YouTubeChatConfig, YouTubeComment
 
 __all__ = [
     "YouTubeChat",

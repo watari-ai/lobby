@@ -1,6 +1,5 @@
 """Tests for Live2D module"""
 
-import pytest
 
 from backend.core.emotion import Emotion
 from backend.core.live2d import (

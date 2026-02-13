@@ -1,14 +1,14 @@
 """Tests for Subtitle Translator"""
 
-import pytest
-from pathlib import Path
 
-from backend.core.subtitle import SubtitleTrack, SubtitleFormat
+import pytest
+
+from backend.core.subtitle import SubtitleTrack
 from backend.core.subtitle_translator import (
-    SubtitleTranslator,
-    TranslatorConfig,
-    TranslationProvider,
     LANGUAGE_NAMES,
+    SubtitleTranslator,
+    TranslationProvider,
+    TranslatorConfig,
     _parse_srt,
     _parse_vtt,
     _srt_time_to_ms,
@@ -47,7 +47,7 @@ This is a test
 """
         track = SubtitleTrack()
         result = _parse_srt(content, track)
-        
+
         assert len(result.entries) == 2
         assert result.entries[0].text == "Hello world"
         assert result.entries[0].start_ms == 1000
@@ -67,7 +67,7 @@ Language: ja
 """
         track = SubtitleTrack()
         result = _parse_vtt(content, track)
-        
+
         assert result.language == "ja"
         assert len(result.entries) == 2
         assert result.entries[0].text == "こんにちは"
@@ -90,7 +90,7 @@ class TestTranslatorConfig:
     def test_default_config(self):
         """デフォルト設定"""
         config = TranslatorConfig()
-        
+
         assert config.provider == TranslationProvider.OPENCLAW
         assert config.openclaw_url == "http://localhost:18789"
         assert config.batch_size == 10
@@ -103,17 +103,17 @@ class TestSubtitleTranslator:
     def test_translator_init(self):
         """翻訳器初期化"""
         translator = SubtitleTranslator()
-        
+
         assert translator.config.provider == TranslationProvider.OPENCLAW
-    
+
     def test_clean_translation(self):
         """翻訳結果クリーニング"""
         translator = SubtitleTranslator()
-        
+
         # 引用符除去
         assert translator._clean_translation('"Hello"') == "Hello"
         assert translator._clean_translation("'Hello'") == "Hello"
-        
+
         # プレフィックス除去
         assert translator._clean_translation("Translation: Hello") == "Hello"
         assert translator._clean_translation("[Translation] Hello") == "Hello"
@@ -121,7 +121,7 @@ class TestSubtitleTranslator:
     def test_get_language_name(self):
         """言語名取得"""
         translator = SubtitleTranslator()
-        
+
         assert translator._get_language_name("ja") == "Japanese"
         assert translator._get_language_name("en") == "English"
         assert translator._get_language_name("unknown") == "unknown"
@@ -144,7 +144,7 @@ class TestSubtitleTrackTranslation:
         assert len(sample_track.entries) == 3
         assert sample_track.language == "ja"
         assert sample_track.title == "Test"
-        
+
         # タイミング確認
         assert sample_track.entries[0].start_ms == 0
         assert sample_track.entries[2].end_ms == 7500
@@ -159,15 +159,15 @@ class TestTranslatorIntegration:
     async def test_translate_text(self):
         """テキスト翻訳"""
         translator = SubtitleTranslator()
-        
+
         result = await translator.translate_text(
             text="こんにちは",
             source_lang="ja",
             target_lang="en",
         )
-        
+
         assert result.original == "こんにちは"
         assert result.target_lang == "en"
         # 翻訳結果は環境依存
-        
+
         await translator.close()

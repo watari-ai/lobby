@@ -1,9 +1,7 @@
 """WebSocket API for Live2D real-time parameter streaming"""
 
 import asyncio
-import json
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger

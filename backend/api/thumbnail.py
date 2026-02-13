@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from ..core.highlight import Highlight, HighlightType
 from ..core.thumbnail import (
     ThumbnailConfig,
     ThumbnailGenerator,
@@ -17,7 +18,6 @@ from ..core.thumbnail import (
     ThumbnailResult,
     ThumbnailSize,
 )
-from ..core.highlight import Highlight, HighlightType
 
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
@@ -57,7 +57,7 @@ class GenerateThumbnailRequest(BaseModel):
     video_path: str = Field(..., description="Path to source video")
     output_dir: Optional[str] = Field(default=None, description="Output directory")
     sizes: Optional[list[ThumbnailSizeModel]] = Field(
-        default=None, 
+        default=None,
         description="Thumbnail sizes to generate (default: YouTube, Twitter, Square)"
     )
     text_overlay: Optional[str] = Field(default=None, description="Text to overlay on thumbnail")
@@ -118,7 +118,7 @@ def _result_to_response(result: ThumbnailResult) -> ThumbnailResponse:
             blur_score=result.quality.blur_score,
             overall_score=result.quality.overall_score,
         )
-    
+
     return ThumbnailResponse(
         success=result.success,
         output_paths=[str(p) for p in result.output_paths],
@@ -134,20 +134,20 @@ def _result_to_response(result: ThumbnailResult) -> ThumbnailResponse:
 async def generate_thumbnail(request: GenerateThumbnailRequest):
     """
     Automatically generate thumbnails from a video.
-    
+
     Analyzes the video for highlights and selects the best frame
     for thumbnail generation. Multiple sizes are generated.
     """
     manager = get_thumbnail_manager()
-    
+
     video_path = Path(request.video_path)
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video not found: {request.video_path}")
-    
+
     sizes = _convert_sizes(request.sizes)
     output_dir = Path(request.output_dir) if request.output_dir else None
     session_log_path = Path(request.session_log_path) if request.session_log_path else None
-    
+
     result = await manager.auto_generate(
         video_path=video_path,
         session_log_path=session_log_path,
@@ -155,7 +155,7 @@ async def generate_thumbnail(request: GenerateThumbnailRequest):
         sizes=sizes,
         text_overlay=request.text_overlay,
     )
-    
+
     return _result_to_response(result)
 
 
@@ -163,20 +163,20 @@ async def generate_thumbnail(request: GenerateThumbnailRequest):
 async def generate_at_timestamp(request: GenerateAtTimestampRequest):
     """
     Generate thumbnail at a specific timestamp.
-    
+
     Extracts frames around the specified timestamp and selects
     the best quality frame for thumbnail generation.
     """
     manager = get_thumbnail_manager()
     generator = manager.generator
-    
+
     video_path = Path(request.video_path)
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video not found: {request.video_path}")
-    
+
     sizes = _convert_sizes(request.sizes)
     output_dir = Path(request.output_dir) if request.output_dir else None
-    
+
     result = await generator.generate_at_timestamp(
         video_path=video_path,
         timestamp_ms=request.timestamp_ms,
@@ -184,7 +184,7 @@ async def generate_at_timestamp(request: GenerateAtTimestampRequest):
         sizes=sizes,
         text_overlay=request.text_overlay,
     )
-    
+
     return _result_to_response(result)
 
 
@@ -192,17 +192,17 @@ async def generate_at_timestamp(request: GenerateAtTimestampRequest):
 async def generate_from_highlight(request: GenerateFromHighlightRequest):
     """
     Generate thumbnail from a specific highlight.
-    
+
     Uses the highlight's timestamp and duration to find
     the best frame for thumbnail generation.
     """
     manager = get_thumbnail_manager()
     generator = manager.generator
-    
+
     video_path = Path(request.video_path)
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video not found: {request.video_path}")
-    
+
     # Parse highlight
     try:
         highlight = Highlight(
@@ -215,10 +215,10 @@ async def generate_from_highlight(request: GenerateFromHighlightRequest):
         )
     except (KeyError, ValueError) as e:
         raise HTTPException(status_code=400, detail=f"Invalid highlight format: {e}")
-    
+
     sizes = _convert_sizes(request.sizes)
     output_dir = Path(request.output_dir) if request.output_dir else None
-    
+
     result = await generator.generate_from_highlight(
         video_path=video_path,
         highlight=highlight,
@@ -226,7 +226,7 @@ async def generate_from_highlight(request: GenerateFromHighlightRequest):
         sizes=sizes,
         text_overlay=request.text_overlay,
     )
-    
+
     return _result_to_response(result)
 
 
@@ -234,7 +234,7 @@ async def generate_from_highlight(request: GenerateFromHighlightRequest):
 async def get_preset_sizes():
     """
     Get available preset thumbnail sizes.
-    
+
     Returns predefined sizes for common platforms.
     """
     return {
@@ -252,11 +252,11 @@ async def get_preset_sizes():
 async def configure_thumbnail_generator(config: ThumbnailConfigModel):
     """
     Configure the thumbnail generator.
-    
+
     Updates settings for thumbnail generation.
     """
     global _thumbnail_manager
-    
+
     thumbnail_config = ThumbnailConfig(
         output_format=config.output_format,
         jpeg_quality=config.jpeg_quality,
@@ -265,10 +265,10 @@ async def configure_thumbnail_generator(config: ThumbnailConfigModel):
         overlay_font_size=config.overlay_font_size,
         overlay_position=config.overlay_position,
     )
-    
+
     generator = ThumbnailGenerator(config=thumbnail_config)
     _thumbnail_manager = ThumbnailManager(generator=generator)
-    
+
     return {
         "status": "configured",
         "config": {
@@ -284,20 +284,20 @@ async def configure_thumbnail_generator(config: ThumbnailConfigModel):
 async def get_status():
     """
     Get thumbnail generator status.
-    
+
     Returns availability and configuration.
     """
     import shutil
-    
+
     try:
         from PIL import Image
         pillow_available = True
     except ImportError:
         pillow_available = False
-    
+
     manager = get_thumbnail_manager()
     config = manager.generator.config
-    
+
     return {
         "status": "ready",
         "dependencies": {

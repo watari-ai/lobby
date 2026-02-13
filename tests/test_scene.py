@@ -1,15 +1,16 @@
 """Tests for Scene Manager"""
 
+
 import pytest
-import asyncio
+
 from backend.core.scene import (
-    SceneManager,
-    Scene,
     Background,
-    CameraSettings,
     CameraAngle,
+    CameraSettings,
     Overlay,
     OverlayType,
+    Scene,
+    SceneManager,
     get_scene_manager,
 )
 
@@ -42,7 +43,7 @@ class TestCameraSettings:
         )
         data = camera.to_dict()
         restored = CameraSettings.from_dict(data)
-        
+
         assert restored.angle == camera.angle
         assert restored.zoom == camera.zoom
         assert restored.offset_x == camera.offset_x
@@ -67,7 +68,7 @@ class TestBackground:
         )
         data = bg.to_dict()
         restored = Background.from_dict(data)
-        
+
         assert restored.name == bg.name
         assert restored.type == bg.type
         assert restored.source == bg.source
@@ -86,7 +87,7 @@ class TestOverlay:
             position=(0.5, 0.9)
         )
         assert overlay.type == OverlayType.TEXT
-        assert overlay.visible == True
+        assert overlay.visible
 
     def test_to_dict_from_dict(self):
         overlay = Overlay(
@@ -101,7 +102,7 @@ class TestOverlay:
         )
         data = overlay.to_dict()
         restored = Overlay.from_dict(data)
-        
+
         assert restored.id == overlay.id
         assert restored.type == overlay.type
         assert restored.content == overlay.content
@@ -118,7 +119,7 @@ class TestScene:
             camera=CameraSettings.preset(CameraAngle.MEDIUM)
         )
         assert scene.name == "test"
-        assert scene.avatar_visible == True
+        assert scene.avatar_visible
         assert scene.avatar_scale == 1.0
 
     def test_to_dict_from_dict(self):
@@ -135,7 +136,7 @@ class TestScene:
         )
         data = scene.to_dict()
         restored = Scene.from_dict(data)
-        
+
         assert restored.name == scene.name
         assert restored.avatar_visible == scene.avatar_visible
         assert len(restored.overlays) == 1
@@ -147,7 +148,7 @@ class TestSceneManager:
     def test_default_scenes(self):
         manager = SceneManager()
         scenes = manager.list_scenes()
-        
+
         assert "talk" in scenes
         assert "reaction" in scenes
         assert "gaming" in scenes
@@ -156,73 +157,73 @@ class TestSceneManager:
     def test_current_scene_default(self):
         manager = SceneManager()
         current = manager.get_current_scene()
-        
+
         assert current is not None
         assert current.name == "talk"
 
     @pytest.mark.asyncio
     async def test_switch_scene(self):
         manager = SceneManager()
-        
+
         success = await manager.switch_scene("reaction")
-        assert success == True
+        assert success
         assert manager.get_current_scene().name == "reaction"
 
     @pytest.mark.asyncio
     async def test_switch_scene_invalid(self):
         manager = SceneManager()
-        
+
         success = await manager.switch_scene("nonexistent")
-        assert success == False
+        assert not success
 
     def test_add_scene(self):
         manager = SceneManager()
-        
+
         new_scene = Scene(
             name="custom",
             background=Background(name="bg", type="color", source="#ff0000"),
             camera=CameraSettings.preset(CameraAngle.MEDIUM)
         )
-        
+
         success = manager.add_scene(new_scene)
-        assert success == True
+        assert success
         assert "custom" in manager.list_scenes()
 
     def test_add_scene_duplicate(self):
         manager = SceneManager()
-        
+
         new_scene = Scene(
             name="talk",  # already exists
             background=Background(name="bg", type="color", source="#ff0000"),
             camera=CameraSettings.preset(CameraAngle.MEDIUM)
         )
-        
+
         success = manager.add_scene(new_scene)
-        assert success == False
+        assert not success
 
     def test_update_scene(self):
         manager = SceneManager()
-        
+
         success = manager.update_scene("talk", {
             "avatar_scale": 1.5,
             "avatar_visible": False
         })
-        
-        assert success == True
+
+        assert success
         scene = manager.get_scene("talk")
         assert scene.avatar_scale == 1.5
-        assert scene.avatar_visible == False
+        assert not scene.avatar_visible
 
     def test_delete_scene_default(self):
         manager = SceneManager()
-        
+
         # Default scenes cannot be deleted
         success = manager.delete_scene("talk")
-        assert success == False
+        assert not success
 
     def test_delete_scene_custom(self):
         manager = SceneManager()
-        
+
         # Add and delete custom scene
         new_scene = Scene(
             name="deletable",
@@ -230,18 +231,18 @@ class TestSceneManager:
             camera=CameraSettings.preset(CameraAngle.MEDIUM)
         )
         manager.add_scene(new_scene)
-        
+
         success = manager.delete_scene("deletable")
-        assert success == True
+        assert success
         assert "deletable" not in manager.list_scenes()
 
     @pytest.mark.asyncio
     async def test_set_camera(self):
         manager = SceneManager()
-        
+
         success = await manager.set_camera(zoom=2.0, offset_x=0.5)
-        assert success == True
-        
+        assert success
+
         camera = manager.get_current_scene().camera
         assert camera.zoom == 2.0
         assert camera.offset_x == 0.5
@@ -249,60 +250,60 @@ class TestSceneManager:
     @pytest.mark.asyncio
     async def test_set_camera_bounds(self):
         manager = SceneManager()
-        
+
         # Test clamping
         await manager.set_camera(zoom=5.0)  # Max is 3.0
         assert manager.get_current_scene().camera.zoom == 3.0
-        
+
         await manager.set_camera(zoom=0.05)  # Min is 0.1
         assert manager.get_current_scene().camera.zoom == 0.1
 
     def test_add_overlay(self):
         manager = SceneManager()
-        
+
         overlay = Overlay(
             id="test_overlay",
             type=OverlayType.TEXT,
             content="Test"
         )
-        
+
         success = manager.add_overlay(overlay)
-        assert success == True
-        
+        assert success
+
         overlays = manager.get_current_scene().overlays
         assert any(o.id == "test_overlay" for o in overlays)
 
     def test_remove_overlay(self):
         manager = SceneManager()
-        
+
         # Default talk scene has name_plate overlay
         success = manager.remove_overlay("name_plate")
-        assert success == True
-        
+        assert success
+
         overlays = manager.get_current_scene().overlays
         assert not any(o.id == "name_plate" for o in overlays)
 
     def test_update_overlay(self):
         manager = SceneManager()
-        
+
         success = manager.update_overlay("name_plate", {
             "content": "Updated Name",
             "visible": False
         })
-        assert success == True
-        
+        assert success
+
         overlays = manager.get_current_scene().overlays
         name_plate = next((o for o in overlays if o.id == "name_plate"), None)
         assert name_plate is not None
         assert name_plate.content == "Updated Name"
-        assert name_plate.visible == False
+        assert not name_plate.visible
 
     def test_show_caption(self):
         manager = SceneManager()
-        
+
         caption_id = manager.show_caption("Hello!", 5000)
         assert caption_id is not None
-        
+
         overlays = manager.get_current_scene().overlays
         assert any(o.id == caption_id for o in overlays)
 
@@ -311,16 +312,16 @@ class TestSceneManager:
         manager = SceneManager()
         callback_called = False
         received_scene = None
-        
+
         async def callback(scene, transition):
             nonlocal callback_called, received_scene
             callback_called = True
             received_scene = scene
-        
+
         manager.on_scene_change(callback)
         await manager.switch_scene("reaction")
-        
-        assert callback_called == True
+
+        assert callback_called
         assert received_scene.name == "reaction"
 
 
@@ -330,7 +331,7 @@ class TestGetSceneManager:
     def test_singleton(self):
         manager1 = get_scene_manager()
         manager2 = get_scene_manager()
-        
+
         # 同一インスタンスであることを確認
         assert manager1 is manager2
 

@@ -1,9 +1,9 @@
 """TTS (Text-to-Speech) Client - Qwen3-TTS, MioTTS & OpenAI Compatible APIs"""
 
+import base64
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-import base64
 
 import httpx
 from loguru import logger

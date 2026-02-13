@@ -11,20 +11,20 @@ REST API endpoints for scene control:
 - POST /api/scene/caption - テロップ表示
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
 from typing import Optional
 
-from ..core.scene import (
-    get_scene_manager,
-    Scene,
-    Background,
-    CameraSettings,
-    CameraAngle,
-    Overlay,
-    OverlayType
-)
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
+from ..core.scene import (
+    Background,
+    CameraAngle,
+    CameraSettings,
+    Overlay,
+    OverlayType,
+    Scene,
+    get_scene_manager,
+)
 
 router = APIRouter(prefix="/api/scene", tags=["scene"])
 
@@ -151,11 +151,11 @@ async def switch_scene(request: SwitchSceneRequest):
 async def create_scene(request: CreateSceneRequest):
     """新しいシーンを作成"""
     manager = get_scene_manager()
-    
+
     # 既存チェック
     if manager.get_scene(request.name):
         raise HTTPException(status_code=409, detail=f"Scene '{request.name}' already exists")
-    
+
     # シーン作成
     scene = Scene(
         name=request.name,
@@ -166,10 +166,10 @@ async def create_scene(request: CreateSceneRequest):
         avatar_position=tuple(request.avatar_position),
         avatar_scale=request.avatar_scale
     )
-    
+
     if not manager.add_scene(scene):
         raise HTTPException(status_code=500, detail="Failed to create scene")
-    
+
     return {"success": True, "scene": scene.to_dict()}
 
 
@@ -177,7 +177,7 @@ async def create_scene(request: CreateSceneRequest):
 async def update_scene(name: str, request: UpdateSceneRequest):
     """シーンを更新"""
     manager = get_scene_manager()
-    
+
     updates = {}
     if request.background is not None:
         updates["background"] = request.background
@@ -191,11 +191,11 @@ async def update_scene(name: str, request: UpdateSceneRequest):
         updates["avatar_position"] = request.avatar_position
     if request.avatar_scale is not None:
         updates["avatar_scale"] = request.avatar_scale
-    
+
     success = manager.update_scene(name, updates)
     if not success:
         raise HTTPException(status_code=404, detail=f"Scene '{name}' not found")
-    
+
     return {"success": True, "scene": manager.get_scene(name).to_dict()}
 
 
@@ -206,7 +206,7 @@ async def delete_scene(name: str):
     success = manager.delete_scene(name)
     if not success:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Cannot delete scene '{name}' (default scenes cannot be deleted)"
         )
     return {"success": True, "deleted": name}
@@ -216,24 +216,24 @@ async def delete_scene(name: str):
 async def set_camera(request: CameraRequest):
     """カメラ設定を変更"""
     manager = get_scene_manager()
-    
+
     angle = None
     if request.angle:
         try:
             angle = CameraAngle(request.angle)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid angle: {request.angle}")
-    
+
     success = await manager.set_camera(
         angle=angle,
         zoom=request.zoom,
         offset_x=request.offset_x,
         offset_y=request.offset_y
     )
-    
+
     if not success:
         raise HTTPException(status_code=400, detail="No current scene")
-    
+
     scene = manager.get_current_scene()
     return {
         "success": True,
@@ -245,12 +245,12 @@ async def set_camera(request: CameraRequest):
 async def add_overlay(request: OverlayRequest):
     """オーバーレイを追加"""
     manager = get_scene_manager()
-    
+
     try:
         overlay_type = OverlayType(request.type)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid overlay type: {request.type}")
-    
+
     overlay = Overlay(
         id=request.id,
         type=overlay_type,
@@ -262,11 +262,11 @@ async def add_overlay(request: OverlayRequest):
         z_index=request.z_index,
         animation=request.animation
     )
-    
+
     success = manager.add_overlay(overlay)
     if not success:
         raise HTTPException(status_code=400, detail="No current scene")
-    
+
     return {"success": True, "overlay": overlay.to_dict()}
 
 

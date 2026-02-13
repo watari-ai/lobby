@@ -5,18 +5,17 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from loguru import logger
 
-from .websocket import router as ws_router
+from .audio import router as audio_router
+from .clip import router as clip_router
+from .highlight import router as highlight_router
 from .live import router as live_router
 from .obs import router as obs_router
-from .audio import router as audio_router
 from .scene import router as scene_router
-from .vrm import router as vrm_router
 from .subtitle import router as subtitle_router
-from .highlight import router as highlight_router
-from .clip import router as clip_router
 from .thumbnail import router as thumbnail_router
+from .vrm import router as vrm_router
+from .websocket import router as ws_router
 
 # アプリケーション作成
 app = FastAPI(

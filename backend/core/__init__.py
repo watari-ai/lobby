@@ -1,5 +1,14 @@
 """Core modules for Lobby"""
 
+from .audio_manager import (
+    EMOTION_SE_MAPPING,
+    AudioChannel,
+    AudioManager,
+    AudioTrack,
+    PlaybackState,
+    RepeatMode,
+    SoundEffect,
+)
 from .avatar import (
     AvatarFrame,
     AvatarParts,
@@ -9,7 +18,20 @@ from .avatar import (
     LipsyncConfig,
     MouthShape,
 )
+from .clip import (
+    ClipConfig,
+    ClipExtractor,
+    ClipManager,
+    ClipResult,
+)
 from .emotion import Emotion, EmotionAnalyzer, EmotionResult
+from .highlight import (
+    Highlight,
+    HighlightConfig,
+    HighlightDetector,
+    HighlightEnabledRecorder,
+    HighlightType,
+)
 from .live2d import (
     Live2DConfig,
     Live2DExpression,
@@ -18,18 +40,7 @@ from .live2d import (
     Live2DModel,
     Live2DParameters,
 )
-from .tts import TTSClient, TTSConfig
-from .video import VideoComposer, VideoConfig, get_audio_duration_ms
-from .openclaw import OpenClawClient, OpenClawConfig, LOBBY_SYSTEM_PROMPT
-from .audio_manager import (
-    AudioChannel,
-    AudioManager,
-    AudioTrack,
-    EMOTION_SE_MAPPING,
-    PlaybackState,
-    RepeatMode,
-    SoundEffect,
-)
+from .openclaw import LOBBY_SYSTEM_PROMPT, OpenClawClient, OpenClawConfig
 from .scene import (
     Background,
     CameraAngle,
@@ -39,19 +50,6 @@ from .scene import (
     Scene,
     SceneManager,
     get_scene_manager,
-)
-from .vrm import (
-    EMOTION_TO_VRM_EXPRESSION,
-    PHONEME_TO_VRM_VISEME,
-    VRMController,
-    VRMExpression,
-    VRMExpressionPreset,
-    VRMExpressionState,
-    VRMLookAt,
-    VRMMetadata,
-    VRMModel,
-    get_vrm_controller,
-    parse_vrm_glb,
 )
 from .subtitle import (
     SubtitleEntry,
@@ -68,19 +66,6 @@ from .subtitle_translator import (
     TranslatorConfig,
     translate_subtitle_file,
 )
-from .highlight import (
-    Highlight,
-    HighlightConfig,
-    HighlightDetector,
-    HighlightEnabledRecorder,
-    HighlightType,
-)
-from .clip import (
-    ClipConfig,
-    ClipExtractor,
-    ClipManager,
-    ClipResult,
-)
 from .thumbnail import (
     FrameQuality,
     ThumbnailConfig,
@@ -88,6 +73,21 @@ from .thumbnail import (
     ThumbnailManager,
     ThumbnailResult,
     ThumbnailSize,
+)
+from .tts import TTSClient, TTSConfig
+from .video import VideoComposer, VideoConfig, get_audio_duration_ms
+from .vrm import (
+    EMOTION_TO_VRM_EXPRESSION,
+    PHONEME_TO_VRM_VISEME,
+    VRMController,
+    VRMExpression,
+    VRMExpressionPreset,
+    VRMExpressionState,
+    VRMLookAt,
+    VRMMetadata,
+    VRMModel,
+    get_vrm_controller,
+    parse_vrm_glb,
 )
 
 

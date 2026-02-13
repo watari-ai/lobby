@@ -20,10 +20,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ..core.highlight import (
-    Highlight,
     HighlightConfig,
     HighlightDetector,
-    HighlightType,
 )
 
 logger = logging.getLogger(__name__)
@@ -143,11 +141,11 @@ class StatusResponse(BaseModel):
 async def start_session(request: Optional[StartSessionRequest] = None):
     """
     Start a new highlight detection session.
-    
+
     Clears any existing highlights and begins tracking.
     """
     global _detector
-    
+
     config = None
     if request and request.config:
         config = HighlightConfig(
@@ -159,10 +157,10 @@ async def start_session(request: Optional[StartSessionRequest] = None):
             merge_window_ms=request.config.merge_window_ms,
             highlight_keywords=request.config.highlight_keywords,
         )
-    
+
     _detector = HighlightDetector(config)
     _detector.start_session()
-    
+
     logger.info("Highlight detection session started")
     return StatusResponse(status="ok", message="Highlight detection session started")
 
@@ -171,12 +169,12 @@ async def start_session(request: Optional[StartSessionRequest] = None):
 async def stop_session():
     """
     Stop the current highlight detection session.
-    
+
     Returns all detected highlights, merged and sorted.
     """
     detector = get_detector()
     highlights = detector.stop_session()
-    
+
     return HighlightsResponse(
         total=len(highlights),
         highlights=[
@@ -198,12 +196,12 @@ async def stop_session():
 async def add_marker(request: MarkerRequest):
     """
     Add a manual highlight marker.
-    
+
     Useful for marking important moments during recording/streaming.
     """
     detector = get_detector()
     detector.add_manual_marker(request.label, request.timestamp_ms)
-    
+
     return StatusResponse(status="ok", message=f"Marker added: {request.label}")
 
 
@@ -214,7 +212,7 @@ async def process_emotion(request: EmotionEventRequest):
     """
     detector = get_detector()
     detector.process_emotion(request.emotion, request.intensity, request.timestamp_ms)
-    
+
     return StatusResponse(status="ok", message=f"Emotion processed: {request.emotion}")
 
 
@@ -222,7 +220,7 @@ async def process_emotion(request: EmotionEventRequest):
 async def process_chat(request: ChatMessageRequest):
     """
     Process a chat message for highlight detection.
-    
+
     Detects superchats, keywords, and chat bursts.
     """
     detector = get_detector()
@@ -232,9 +230,9 @@ async def process_chat(request: ChatMessageRequest):
     }
     if request.amount:
         message["amount"] = request.amount
-    
+
     detector.process_chat_message(message, request.timestamp_ms)
-    
+
     return StatusResponse(status="ok", message="Chat message processed")
 
 
@@ -244,7 +242,7 @@ async def list_highlights():
     Get all current highlights (unmerged).
     """
     detector = get_detector()
-    
+
     return HighlightsResponse(
         total=len(detector.highlights),
         highlights=[
@@ -269,7 +267,7 @@ async def get_top_highlights(n: int = 10):
     """
     detector = get_detector()
     top = detector.get_top_highlights(n)
-    
+
     return HighlightsResponse(
         total=len(top),
         highlights=[
@@ -294,7 +292,7 @@ async def generate_chapters(request: ChaptersRequest):
     """
     detector = get_detector()
     chapters = detector.generate_chapters(request.video_duration_ms, request.max_chapters)
-    
+
     # Format timestamps
     def format_timestamp(ms: int) -> str:
         total_seconds = ms / 1000
@@ -302,7 +300,7 @@ async def generate_chapters(request: ChaptersRequest):
         minutes = int((total_seconds % 3600) // 60)
         seconds = total_seconds % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:06.3f}"
-    
+
     return ChaptersResponse(
         total=len(chapters),
         chapters=[
@@ -324,17 +322,17 @@ async def analyze_audio(request: AnalyzeRequest):
     audio_path = Path(request.audio_path)
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail=f"Audio file not found: {audio_path}")
-    
+
     config = None
     if request.config:
         config = HighlightConfig(
             audio_threshold=request.config.audio_threshold,
             emotion_threshold=request.config.emotion_threshold,
         )
-    
+
     detector = HighlightDetector(config)
     highlights = await detector.analyze_audio_file(audio_path)
-    
+
     return HighlightsResponse(
         total=len(highlights),
         highlights=[
@@ -359,10 +357,10 @@ async def export_highlights(request: ExportRequest):
     """
     detector = get_detector()
     output_path = Path(request.output_path)
-    
+
     try:
         detector.export_highlights(output_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Export failed: {e}")
-    
+
     return StatusResponse(status="ok", message=f"Highlights exported to {output_path}")

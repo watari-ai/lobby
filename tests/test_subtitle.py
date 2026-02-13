@@ -1,14 +1,13 @@
 """Tests for Subtitle Generator"""
 
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch, AsyncMock
 
 from backend.core.subtitle import (
     SubtitleEntry,
-    SubtitleTrack,
     SubtitleFormat,
     SubtitleGenerator,
+    SubtitleTrack,
     generate_subtitles_from_recording,
 )
 

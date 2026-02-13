@@ -4,11 +4,11 @@
 """
 
 import asyncio
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Callable, Optional
-from collections import deque
 
 from loguru import logger
 
@@ -92,20 +92,20 @@ class LiveSubtitleManager:
 
     def __init__(self, config: Optional[SubtitleConfig] = None):
         self.config = config or SubtitleConfig()
-        
+
         # 字幕履歴（アーカイブ用）
         self._history: deque[LiveSubtitle] = deque(maxlen=1000)
-        
+
         # 現在表示中の字幕
         self._current_subtitle: Optional[LiveSubtitle] = None
-        
+
         # 字幕カウンター（ID生成用）
         self._counter: int = 0
-        
+
         # ブロードキャストコールバック
         self._on_subtitle: Optional[Callable[[LiveSubtitle], None]] = None
         self._on_clear: Optional[Callable[[], None]] = None
-        
+
         # 自動クリアタスク
         self._clear_task: Optional[asyncio.Task] = None
 
@@ -131,13 +131,13 @@ class LiveSubtitleManager:
 
         lines = []
         current_line = ""
-        
+
         # 句読点で分割を優先
         split_points = ["。", "！", "？", "、", "…", "　", " "]
-        
+
         for char in text:
             current_line += char
-            
+
             if len(current_line) >= max_chars - 3:
                 # 分割点を探す
                 split_found = False
@@ -149,15 +149,15 @@ class LiveSubtitleManager:
                             current_line = current_line[last_idx + 1:].strip()
                             split_found = True
                             break
-                
+
                 # 分割点がなければ強制分割
                 if not split_found and len(current_line) >= max_chars:
                     lines.append(current_line.strip())
                     current_line = ""
-        
+
         if current_line.strip():
             lines.append(current_line.strip())
-        
+
         # 最大行数に制限
         return lines[:self.config.max_lines]
 
@@ -234,7 +234,7 @@ class LiveSubtitleManager:
     async def clear_subtitle(self):
         """字幕をクリア"""
         self._current_subtitle = None
-        
+
         if self._on_clear:
             self._on_clear()
 
@@ -259,10 +259,10 @@ class LiveSubtitleManager:
         Returns:
             字幕ファイル内容
         """
-        from .subtitle import SubtitleTrack, SubtitleFormat
+        from .subtitle import SubtitleTrack
 
         track = SubtitleTrack(language="ja")
-        
+
         # 履歴から字幕トラックを構築
         current_ms = 0
         for sub in self._history:
@@ -335,7 +335,7 @@ class SubtitleBroadcaster:
     async def _send_to_all(self, message: dict):
         """全接続にメッセージ送信"""
         disconnected = []
-        
+
         for conn in self._connections:
             try:
                 await conn.send_json(message)

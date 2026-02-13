@@ -15,8 +15,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.vrm import (
-    VRMController,
-    VRMExpressionPreset,
     get_vrm_controller,
 )
 
@@ -33,7 +31,7 @@ class LoadModelRequest(BaseModel):
 class LoadModelResponse(BaseModel):
     """Response after loading a model."""
     model_config = ConfigDict(populate_by_name=True)
-    
+
     success: bool
     vrm_version: str = Field(alias="vrmVersion")
     title: str
@@ -67,7 +65,7 @@ class ExpressionStateResponse(BaseModel):
 class LookAtResponse(BaseModel):
     """Response with look-at state."""
     model_config = ConfigDict(populate_by_name=True)
-    
+
     target_x: float = Field(alias="targetX")
     target_y: float = Field(alias="targetY")
 
@@ -75,7 +73,7 @@ class LookAtResponse(BaseModel):
 class VRMStateResponse(BaseModel):
     """Full VRM state response."""
     model_config = ConfigDict(populate_by_name=True)
-    
+
     expressions: dict[str, float]
     look_at: dict[str, float] = Field(alias="lookAt")
     bone_rotations: list[dict[str, Any]] = Field(alias="boneRotations")
@@ -84,7 +82,7 @@ class VRMStateResponse(BaseModel):
 class ModelInfoResponse(BaseModel):
     """VRM model information response."""
     model_config = ConfigDict(populate_by_name=True)
-    
+
     loaded: bool
     path: str | None = None
     vrm_version: str | None = Field(default=None, alias="vrmVersion")
@@ -113,17 +111,17 @@ async def get_status() -> dict[str, bool]:
 async def load_model(request: LoadModelRequest) -> LoadModelResponse:
     """
     Load a VRM model from file.
-    
+
     The model will be parsed and its metadata/expressions extracted.
     The frontend should load the same file for Three.js rendering.
     """
     path = Path(request.path)
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"VRM file not found: {path}")
-    
-    if not path.suffix.lower() in (".vrm", ".glb"):
+
+    if path.suffix.lower() not in (".vrm", ".glb"):
         raise HTTPException(status_code=400, detail="File must be .vrm or .glb format")
-    
+
     try:
         ctrl = get_vrm_controller()
         model = ctrl.load_model(path)
@@ -142,10 +140,10 @@ async def load_model(request: LoadModelRequest) -> LoadModelResponse:
 async def get_model_info() -> ModelInfoResponse:
     """Get information about the currently loaded model."""
     ctrl = get_vrm_controller()
-    
+
     if ctrl.model is None:
         return ModelInfoResponse(loaded=False)
-    
+
     return ModelInfoResponse(
         loaded=True,
         path=str(ctrl.model.path),
@@ -160,7 +158,7 @@ async def get_model_info() -> ModelInfoResponse:
 async def set_emotion(request: SetEmotionRequest) -> ExpressionStateResponse:
     """
     Set emotion expression.
-    
+
     Supported emotions: happy, excited, sad, angry, surprised, neutral, relaxed
     """
     ctrl = get_vrm_controller()
@@ -172,7 +170,7 @@ async def set_emotion(request: SetEmotionRequest) -> ExpressionStateResponse:
 async def set_viseme(request: SetVisemeRequest) -> ExpressionStateResponse:
     """
     Set viseme (lip sync) for phoneme.
-    
+
     Supported phonemes: a, i, u, e, o, n, silence (Japanese vowels)
     """
     ctrl = get_vrm_controller()
@@ -192,7 +190,7 @@ async def trigger_blink() -> ExpressionStateResponse:
 async def set_look_at(request: SetLookAtRequest) -> LookAtResponse:
     """
     Set look-at target direction.
-    
+
     - x: Horizontal (-1.0 = left, 1.0 = right)
     - y: Vertical (-1.0 = down, 1.0 = up)
     """

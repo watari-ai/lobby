@@ -10,8 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from ..core.clip import ClipConfig, ClipExtractor, ClipManager, ClipResult
-from ..core.highlight import HighlightDetector
+from ..core.clip import ClipManager
 
 router = APIRouter(prefix="/api/clip", tags=["clip"])
 
@@ -97,12 +96,12 @@ class AutoClipResponse(BaseModel):
 async def get_clip_status():
     """Get clip extraction status and capabilities."""
     import shutil
-    
+
     ffmpeg_available = shutil.which("ffmpeg") is not None
     ffprobe_available = shutil.which("ffprobe") is not None
-    
+
     manager = get_clip_manager()
-    
+
     return {
         "status": "ready" if (ffmpeg_available and ffprobe_available) else "missing_dependencies",
         "ffmpeg_available": ffmpeg_available,
@@ -120,13 +119,13 @@ async def get_clip_status():
 async def update_clip_config(config: ClipConfigModel):
     """Update clip extraction configuration."""
     manager = get_clip_manager()
-    
+
     manager.extractor.config.pre_buffer_ms = config.pre_buffer_ms
     manager.extractor.config.post_buffer_ms = config.post_buffer_ms
     manager.extractor.config.default_format = config.default_format
     manager.extractor.config.crf = config.crf
     manager.extractor.config.max_clips = config.max_clips
-    
+
     return {"status": "updated", "config": config.model_dump()}
 
 
@@ -134,15 +133,15 @@ async def update_clip_config(config: ClipConfigModel):
 async def extract_clip(request: ExtractClipRequest):
     """
     Extract a clip from a video.
-    
+
     Specify start and end times in milliseconds.
     """
     video_path = Path(request.video_path)
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video not found: {request.video_path}")
-    
+
     manager = get_clip_manager()
-    
+
     result = await manager.extract_time_range(
         video_path=video_path,
         start_ms=request.start_ms,
@@ -150,7 +149,7 @@ async def extract_clip(request: ExtractClipRequest):
         output_path=Path(request.output_path) if request.output_path else None,
         format=request.format or "mp4"
     )
-    
+
     return ClipResultResponse(
         success=result.success,
         output_path=str(result.output_path) if result.output_path else None,
@@ -163,21 +162,21 @@ async def extract_clip(request: ExtractClipRequest):
 async def extract_from_highlight(request: ExtractFromHighlightRequest):
     """
     Extract a clip from a highlight with pre/post buffer.
-    
+
     The clip will include time before and after the highlight based on config.
     """
     from ..core.highlight import Highlight, HighlightType
-    
+
     video_path = Path(request.video_path)
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video not found: {request.video_path}")
-    
+
     # Create Highlight object
     try:
         highlight_type = HighlightType(request.highlight_type)
     except ValueError:
         highlight_type = HighlightType.MANUAL_MARKER
-    
+
     highlight = Highlight(
         timestamp_ms=request.highlight_timestamp_ms,
         duration_ms=request.highlight_duration_ms,
@@ -185,16 +184,16 @@ async def extract_from_highlight(request: ExtractFromHighlightRequest):
         score=1.0,
         label=request.highlight_label
     )
-    
+
     manager = get_clip_manager()
-    
+
     result = await manager.extractor.extract_from_highlight(
         video_path=video_path,
         highlight=highlight,
         output_dir=Path(request.output_dir) if request.output_dir else None,
         format=request.format
     )
-    
+
     return ClipResultResponse(
         success=result.success,
         output_path=str(result.output_path) if result.output_path else None,
@@ -207,16 +206,16 @@ async def extract_from_highlight(request: ExtractFromHighlightRequest):
 async def auto_clip_video(request: AutoClipRequest):
     """
     Automatically detect highlights and extract clips.
-    
+
     Analyzes the video for audio spikes, emotion peaks, etc.
     Optionally creates a highlight reel from the best clips.
     """
     video_path = Path(request.video_path)
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video not found: {request.video_path}")
-    
+
     manager = get_clip_manager()
-    
+
     result = await manager.auto_clip_video(
         video_path=video_path,
         output_dir=Path(request.output_dir) if request.output_dir else None,
@@ -224,7 +223,7 @@ async def auto_clip_video(request: AutoClipRequest):
         max_clips=request.max_clips,
         create_reel=request.create_reel
     )
-    
+
     return AutoClipResponse(
         clips=result["clips"],
         reel=result["reel"],
@@ -236,18 +235,18 @@ async def auto_clip_video(request: AutoClipRequest):
 async def create_highlight_reel(request: HighlightReelRequest):
     """
     Create a highlight reel from specified timestamps.
-    
+
     Concatenates clips at the given timestamps into a single video.
     """
     from ..core.highlight import Highlight, HighlightType
-    
+
     video_path = Path(request.video_path)
     if not video_path.exists():
         raise HTTPException(status_code=404, detail=f"Video not found: {request.video_path}")
-    
+
     if not request.highlight_timestamps_ms:
         raise HTTPException(status_code=400, detail="No highlight timestamps provided")
-    
+
     # Create Highlight objects from timestamps
     highlights = [
         Highlight(
@@ -259,9 +258,9 @@ async def create_highlight_reel(request: HighlightReelRequest):
         )
         for ts in request.highlight_timestamps_ms
     ]
-    
+
     manager = get_clip_manager()
-    
+
     result = await manager.extractor.create_highlight_reel(
         video_path=video_path,
         highlights=highlights,
@@ -269,7 +268,7 @@ async def create_highlight_reel(request: HighlightReelRequest):
         max_clips=request.max_clips,
         add_transitions=request.add_transitions
     )
-    
+
     return ClipResultResponse(
         success=result.success,
         output_path=str(result.output_path) if result.output_path else None,

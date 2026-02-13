@@ -1,26 +1,20 @@
 """Subtitle API - リアルタイム字幕WebSocket + REST API + 翻訳"""
 
-import asyncio
-from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from loguru import logger
+from pydantic import BaseModel
 
 from ..core.live_subtitle import (
-    LiveSubtitleManager,
-    SubtitleBroadcaster,
-    SubtitleConfig,
-    LiveSubtitle,
     SubtitleStyle,
     subtitle_broadcaster,
 )
 from ..core.subtitle_translator import (
-    SubtitleTranslator,
-    TranslatorConfig,
-    TranslationProvider,
     LANGUAGE_NAMES,
+    SubtitleTranslator,
+    TranslationProvider,
+    TranslatorConfig,
 )
 
 router = APIRouter()
@@ -321,14 +315,14 @@ async def translate_text(request: TranslateTextRequest):
         翻訳結果
     """
     translator = get_translator()
-    
+
     result = await translator.translate_text(
         text=request.text,
         source_lang=request.source_lang,
         target_lang=request.target_lang,
         context=request.context,
     )
-    
+
     return {
         "original": result.original,
         "translated": result.translated,
@@ -357,19 +351,19 @@ async def translate_history(request: TranslateHistoryRequest):
             "count": 0,
             "target_lang": request.target_lang,
         }
-    
+
     translator = get_translator()
-    
+
     # テキストを抽出
     texts = [s.text for s in history]
-    
+
     # バッチ翻訳
     translations = await translator.translate_batch(
         texts=texts,
         source_lang=request.source_lang,
         target_lang=request.target_lang,
     )
-    
+
     # 結果を構築
     translated_history = []
     for i, subtitle in enumerate(history):
@@ -382,7 +376,7 @@ async def translate_history(request: TranslateHistoryRequest):
             "end_time": subtitle.end_time,
             "confidence": translations[i].confidence,
         })
-    
+
     return {
         "translated": translated_history,
         "count": len(translated_history),
@@ -407,39 +401,39 @@ async def export_translated_subtitles(
     Returns:
         翻訳された字幕ファイル内容
     """
-    from ..core.subtitle import SubtitleTrack, SubtitleFormat
-    
+    from ..core.subtitle import SubtitleFormat, SubtitleTrack
+
     history = subtitle_broadcaster.manager.history
     if not history:
         raise HTTPException(status_code=400, detail="No subtitle history")
-    
+
     translator = get_translator()
-    
+
     # 元のトラックを作成
     track = SubtitleTrack(language=source_lang)
-    
+
     for subtitle in history:
         # LiveSubtitleのタイムスタンプをミリ秒に変換
         start_ms = int(subtitle.start_time * 1000) if subtitle.start_time else 0
         end_ms = int(subtitle.end_time * 1000) if subtitle.end_time else start_ms + subtitle.duration_ms
-        
+
         track.add_entry(
             text=subtitle.text,
             start_ms=start_ms,
             end_ms=end_ms,
             speaker=subtitle.speaker,
         )
-    
+
     # 翻訳
     translated_track = await translator.translate_track(track, target_lang)
-    
+
     # エクスポート
     fmt = SubtitleFormat.VTT if format.lower() == "vtt" else SubtitleFormat.SRT
     if fmt == SubtitleFormat.VTT:
         content = translated_track.to_vtt()
     else:
         content = translated_track.to_srt()
-    
+
     return {
         "format": format,
         "target_lang": target_lang,
@@ -459,14 +453,14 @@ async def configure_translator(config: TranslatorConfigRequest):
         更新結果
     """
     global _translator
-    
+
     # 既存の翻訳器をクローズ
     if _translator:
         await _translator.close()
-    
+
     # 新しい設定で再作成
     _translator = get_translator(config)
-    
+
     return {
         "status": "configured",
         "provider": config.provider,

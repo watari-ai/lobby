@@ -12,16 +12,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from loguru import logger
 
 from ..core.audio_manager import (
-    AudioManager,
     AudioChannel,
+    AudioManager,
     AudioTrack,
-    SoundEffect,
     RepeatMode,
+    SoundEffect,
 )
-
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 
@@ -133,7 +131,7 @@ async def list_playlists():
 async def create_playlist(req: PlaylistCreate):
     """Create a new playlist"""
     manager = get_audio_manager()
-    
+
     tracks = [
         AudioTrack(
             id=t.id,
@@ -144,9 +142,9 @@ async def create_playlist(req: PlaylistCreate):
         )
         for t in req.tracks
     ]
-    
+
     manager.create_playlist(req.name, tracks)
-    
+
     return {
         "message": f"Playlist '{req.name}' created",
         "track_count": len(tracks),
@@ -157,13 +155,13 @@ async def create_playlist(req: PlaylistCreate):
 async def load_playlist_from_directory(req: PlaylistLoadRequest):
     """Load playlist from a directory"""
     manager = get_audio_manager()
-    
+
     directory = Path(req.directory)
     if not directory.exists():
         raise HTTPException(status_code=404, detail=f"Directory not found: {req.directory}")
-    
+
     count = manager.load_playlist_from_directory(req.name, directory)
-    
+
     return {
         "message": f"Playlist '{req.name}' loaded",
         "track_count": count,
@@ -174,14 +172,14 @@ async def load_playlist_from_directory(req: PlaylistLoadRequest):
 async def delete_playlist(name: str):
     """Delete a playlist"""
     manager = get_audio_manager()
-    
+
     if name not in manager.playlists:
         raise HTTPException(status_code=404, detail=f"Playlist not found: {name}")
-    
+
     del manager.playlists[name]
     if manager.current_playlist == name:
         manager.current_playlist = None
-    
+
     return {"message": f"Playlist '{name}' deleted"}
 
 
@@ -189,10 +187,10 @@ async def delete_playlist(name: str):
 async def select_playlist(name: str):
     """Select playlist for playback"""
     manager = get_audio_manager()
-    
+
     if not manager.select_playlist(name):
         raise HTTPException(status_code=404, detail=f"Playlist not found: {name}")
-    
+
     return {"message": f"Playlist '{name}' selected"}
 
 
@@ -200,7 +198,7 @@ async def select_playlist(name: str):
 async def add_track_to_playlist(name: str, track: TrackCreate):
     """Add track to playlist"""
     manager = get_audio_manager()
-    
+
     audio_track = AudioTrack(
         id=track.id,
         path=Path(track.path),
@@ -208,9 +206,9 @@ async def add_track_to_playlist(name: str, track: TrackCreate):
         volume=track.volume,
         tags=track.tags,
     )
-    
+
     manager.add_to_playlist(name, audio_track)
-    
+
     return {"message": f"Track '{track.name}' added to playlist '{name}'"}
 
 
@@ -218,10 +216,10 @@ async def add_track_to_playlist(name: str, track: TrackCreate):
 async def remove_track_from_playlist(name: str, track_id: str):
     """Remove track from playlist"""
     manager = get_audio_manager()
-    
+
     if not manager.remove_from_playlist(name, track_id):
         raise HTTPException(status_code=404, detail="Track not found")
-    
+
     return {"message": f"Track '{track_id}' removed from playlist '{name}'"}
 
 
@@ -231,21 +229,21 @@ async def remove_track_from_playlist(name: str, track_id: str):
 async def play_bgm(track_id: str | None = None):
     """Start BGM playback"""
     manager = get_audio_manager()
-    
+
     track = None
     if track_id:
         # Find track in current playlist
         if manager.current_playlist:
             playlist = manager.playlists.get(manager.current_playlist, [])
             track = next((t for t in playlist if t.id == track_id), None)
-        
+
         if not track:
             raise HTTPException(status_code=404, detail=f"Track not found: {track_id}")
-    
+
     success = await manager.play_bgm(track)
     if not success:
         raise HTTPException(status_code=400, detail="No track to play")
-    
+
     return {
         "message": "BGM playing",
         "track": manager.channels[AudioChannel.BGM].current_track.to_dict()
@@ -282,10 +280,10 @@ async def next_track():
     """Skip to next track"""
     manager = get_audio_manager()
     success = await manager.next_track()
-    
+
     if not success:
         return {"message": "End of playlist"}
-    
+
     return {
         "message": "Next track",
         "track": manager.channels[AudioChannel.BGM].current_track.to_dict()
@@ -297,8 +295,8 @@ async def next_track():
 async def previous_track():
     """Go to previous track"""
     manager = get_audio_manager()
-    success = await manager.previous_track()
-    
+    await manager.previous_track()
+
     return {
         "message": "Previous track",
         "track": manager.channels[AudioChannel.BGM].current_track.to_dict()
@@ -310,10 +308,10 @@ async def previous_track():
 async def set_playback_settings(settings: PlaybackSettings):
     """Set playback settings (shuffle, repeat)"""
     manager = get_audio_manager()
-    
+
     manager.shuffle = settings.shuffle
     manager.repeat = RepeatMode(settings.repeat)
-    
+
     return {
         "shuffle": manager.shuffle,
         "repeat": manager.repeat.value,
@@ -337,7 +335,7 @@ async def list_sound_effects():
 async def register_sound_effect(req: SECreate):
     """Register a sound effect"""
     manager = get_audio_manager()
-    
+
     se = SoundEffect(
         id=req.id,
         path=Path(req.path),
@@ -346,9 +344,9 @@ async def register_sound_effect(req: SECreate):
         volume=req.volume,
         cooldown=req.cooldown,
     )
-    
+
     manager.register_se(se)
-    
+
     return {"message": f"Sound effect '{req.id}' registered"}
 
 
@@ -356,10 +354,10 @@ async def register_sound_effect(req: SECreate):
 async def load_sound_effects(directory: str | None = None):
     """Load sound effects from directory"""
     manager = get_audio_manager()
-    
+
     dir_path = Path(directory) if directory else None
     count = manager.load_se_from_directory(dir_path)
-    
+
     return {"message": f"Loaded {count} sound effects"}
 
 
@@ -367,20 +365,20 @@ async def load_sound_effects(directory: str | None = None):
 async def play_sound_effect(req: SEPlayRequest):
     """Play a sound effect by ID or trigger"""
     manager = get_audio_manager()
-    
+
     if req.se_id:
         success = await manager.play_se(req.se_id, force=req.force)
     elif req.trigger:
         success = await manager.trigger_se(req.trigger)
     else:
         raise HTTPException(status_code=400, detail="Either se_id or trigger required")
-    
+
     if not success:
         raise HTTPException(
             status_code=404,
             detail="Sound effect not found or on cooldown",
         )
-    
+
     return {"message": "Sound effect played"}
 
 
@@ -388,10 +386,10 @@ async def play_sound_effect(req: SEPlayRequest):
 async def unregister_sound_effect(se_id: str):
     """Unregister a sound effect"""
     manager = get_audio_manager()
-    
+
     if se_id not in manager.sound_effects:
         raise HTTPException(status_code=404, detail=f"Sound effect not found: {se_id}")
-    
+
     del manager.sound_effects[se_id]
     return {"message": f"Sound effect '{se_id}' unregistered"}
 

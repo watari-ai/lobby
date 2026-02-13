@@ -13,7 +13,6 @@ from pydantic import BaseModel, Field
 from ..integrations.obs import (
     LobbyOBSIntegration,
     OBSConfig,
-    OBSNotConnectedError,
     OBSRequestError,
     OBSWebSocketClient,
 )
@@ -139,10 +138,10 @@ def get_lobby_obs() -> LobbyOBSIntegration:
 async def connect_obs(request: OBSConnectRequest):
     """OBS WebSocketに接続"""
     global _obs_client, _lobby_obs
-    
+
     if _obs_client and _obs_client.is_connected:
         await _obs_client.disconnect()
-    
+
     config = OBSConfig(
         host=request.host,
         port=request.port,
@@ -150,11 +149,11 @@ async def connect_obs(request: OBSConnectRequest):
     )
     _obs_client = OBSWebSocketClient(config)
     _lobby_obs = None
-    
+
     success = await _obs_client.connect()
     if not success:
         raise HTTPException(status_code=503, detail="Failed to connect to OBS")
-    
+
     logger.info(f"Connected to OBS at {request.host}:{request.port}")
     return OBSStatusResponse(
         connected=True,
@@ -167,12 +166,12 @@ async def connect_obs(request: OBSConnectRequest):
 async def disconnect_obs():
     """OBS WebSocketから切断"""
     global _obs_client, _lobby_obs
-    
+
     if _obs_client:
         await _obs_client.disconnect()
         _obs_client = None
         _lobby_obs = None
-    
+
     return {"status": "disconnected"}
 
 

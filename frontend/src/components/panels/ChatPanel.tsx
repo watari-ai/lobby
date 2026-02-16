@@ -34,10 +34,10 @@ export function ChatPanel() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${gatewayUrl.replace(/\/+$/, '')}/api/v1/chat`, {
+      const res = await fetch('http://localhost:8100/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, gateway_url: gatewayUrl }),
       });
 
       if (!res.ok) {

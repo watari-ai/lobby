@@ -227,6 +227,61 @@ ipcMain.on('updater-install', () => {
   autoUpdater.quitAndInstall(false, true);
 });
 
+// ============================================
+// Local Model Loading
+// ============================================
+
+import * as fs from 'fs';
+
+// Select a directory and find .model3.json files
+ipcMain.handle('select-model-directory', async () => {
+  if (!mainWindow) return { success: false, error: 'No window' };
+  const result = await (await import('electron')).dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+    title: 'Select Live2D Model Directory',
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return { success: false, canceled: true };
+  }
+  const dirPath = result.filePaths[0];
+  return findModelInDirectory(dirPath);
+});
+
+// Read a file as base64
+ipcMain.handle('read-model-file', async (_event, filePath: string) => {
+  try {
+    const data = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    let mime = 'application/octet-stream';
+    if (ext === '.json') mime = 'application/json';
+    else if (ext === '.png') mime = 'image/png';
+    else if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
+    else if (ext === '.moc3') mime = 'application/octet-stream';
+    return { success: true, data: data.toString('base64'), mime };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+});
+
+// Scan a directory for model3.json
+ipcMain.handle('scan-model-directory', async (_event, dirPath: string) => {
+  return findModelInDirectory(dirPath);
+});
+
+function findModelInDirectory(dirPath: string): { success: boolean; modelPath?: string; dirPath?: string; error?: string } {
+  try {
+    const files = fs.readdirSync(dirPath, { recursive: true }) as string[];
+    const modelFile = files.find((f) => typeof f === 'string' && f.endsWith('.model3.json'));
+    if (!modelFile) {
+      return { success: false, error: 'No .model3.json file found in directory' };
+    }
+    const fullPath = path.join(dirPath, modelFile);
+    return { success: true, modelPath: fullPath, dirPath };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
 // Initialize auto-updater after app is ready
 app.whenReady().then(() => {
   setupAutoUpdater();

@@ -59,7 +59,7 @@ const subtitleStyles: Record<string, React.CSSProperties> = {
 };
 
 interface SubtitleDisplayProps {
-  /** WebSocket URL (デフォルト: ws://localhost:8000/ws/subtitle) */
+  /** WebSocket URL (デフォルト: ws://localhost:8100/ws/subtitle) */
   wsUrl?: string;
   /** 表示位置 */
   position?: 'top' | 'center' | 'bottom';
@@ -74,7 +74,7 @@ interface SubtitleDisplayProps {
 }
 
 export function SubtitleDisplay({
-  wsUrl = 'ws://localhost:8000/ws/subtitle',
+  wsUrl = 'ws://localhost:8100/ws/subtitle',
   position = 'bottom',
   backgroundOpacity = 0.6,
   fontFamily = '"Noto Sans JP", "Hiragino Sans", sans-serif',

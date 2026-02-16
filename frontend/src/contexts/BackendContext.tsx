@@ -33,13 +33,13 @@ const BackendContext = createContext<BackendContextValue | null>(null);
 
 interface BackendProviderProps {
   children: ReactNode;
-  /** WebSocket URL (default: ws://localhost:8000/ws/live2d) */
+  /** WebSocket URL (default: ws://localhost:8100/ws/live2d) */
   url?: string;
 }
 
 export function BackendProvider({ children, url }: BackendProviderProps) {
   const backend = useBackendSync({
-    url: url || 'ws://localhost:8000/ws/live2d',
+    url: url || 'ws://localhost:8100/ws/live2d',
     autoReconnect: true,
     reconnectInterval: 3000,
     maxReconnectAttempts: 10,

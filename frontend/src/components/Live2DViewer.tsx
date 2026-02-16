@@ -7,6 +7,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as PIXI from 'pixi.js';
+import { cleanupBlobUrls } from '../lib/localModel';
 
 // Live2D型定義
 interface Live2DParams {
@@ -57,13 +58,13 @@ async function loadLive2DLibrary() {
     // pixi-live2d-displayのCubism4対応版を使用
     const module = await import('pixi-live2d-display/cubism4');
     Live2DModel = module.Live2DModel;
-    return Live2DModel;
   } catch (e) {
     console.warn('Failed to load Cubism4, trying default:', e);
     const module = await import('pixi-live2d-display');
     Live2DModel = module.Live2DModel;
-    return Live2DModel;
   }
+  
+  return Live2DModel;
 }
 
 // パラメータIDマッピング（フロントエンド→Live2D SDK）
@@ -103,6 +104,7 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
   const currentParamsRef = useRef<Live2DParams>({});
   const targetParamsRef = useRef<Live2DParams>({});
   const animationFrameRef = useRef<number | null>(null);
+  const tickerCallbackRef = useRef<((dt: any) => void) | null>(null);
   const lastUpdateRef = useRef<number>(0);
   
   // デバッグ用FPSカウンター
@@ -206,9 +208,32 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
       containerRef.current!.appendChild(app.view as HTMLCanvasElement);
       appRef.current = app;
 
+      // Patch for pixi-live2d-display compatibility with PixiJS v7 EventSystem.
+      // pixi-live2d-display@0.4.0 calls `renderer.plugins.interaction.on("pointermove", ...)`
+      // in its _render() method. PixiJS v7 defines `plugins.interaction` as a non-configurable
+      // getter that returns `renderer.events` (EventSystem), which does NOT have .on()/.off().
+      // Since the getter is non-configurable, we cannot replace it with Object.defineProperty.
+      // Instead, we monkey-patch EventSystem to add the missing EventEmitter-like methods.
+      const events = app.renderer.events as any;
+      if (events && typeof events.on !== 'function') {
+        events.on = () => events;
+        events.off = () => events;
+        events.once = () => events;
+        events.removeListener = () => events;
+        events.removeAllListeners = () => events;
+        events.listeners = () => [];
+        events.listenerCount = () => 0;
+        events.emit = () => false;
+      }
+
       // モデルをロード
       try {
         const Model = await loadLive2DLibrary();
+        
+        // TickerをLive2DModelに登録（描画更新に必須）
+        // registerTickerは{ shared: { add, remove } }を期待する
+        // Vite ESM環境ではPIXI.Ticker.sharedが取得できないため、app.tickerをラップして渡す
+        Model.registerTicker({ shared: app.ticker });
         
         // デモモデルまたは指定されたモデルをロード
         const path = modelPath || 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
@@ -216,8 +241,30 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
         console.log('[Live2D] Loading model:', path);
         const model = await Model.from(path);
         
+        // Disable the library's autoUpdate — it relies on a module-level
+        // ticker reference (Oe) that can go stale in React strict-mode
+        // double-mounts.  We'll drive updates manually below.
+        model.autoUpdate = false;
+        
         // モデルをステージに追加
         app.stage.addChild(model);
+        
+        // Manually drive Live2D model updates via the app ticker.
+        // This ensures model.update() is called every frame regardless
+        // of the library's internal ticker wiring.
+        const tickerCallback = (dt: any) => {
+          try {
+            if (!modelRef.current || !appRef.current) return;
+            if (!(model as any).internalModel) return;
+            model.update(dt?.deltaMS ?? dt);
+          } catch (_e) {
+            // Swallow ticker linked-list errors (e.g. null .next during teardown)
+          }
+        };
+        app.ticker.add(tickerCallback);
+        tickerCallbackRef.current = tickerCallback;
+        // Ensure ticker is running
+        app.ticker.start();
         
         // モデルのサイズと位置を調整
         const scale = Math.min(
@@ -238,10 +285,9 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
           }
         }
         
-        // アイドルモーション（目パチ、呼吸）を開始
+        // アイドルモーション（目パチ、呼吸）はデフォルトで有効
+        // ※ eyeBlink/breath はオブジェクトなので true で上書きしてはいけない
         if (model.internalModel) {
-          model.internalModel.eyeBlink = true;
-          model.internalModel.breath = true;
           console.log('[Live2D] Idle motions enabled (eye blink, breath)');
         }
         
@@ -292,9 +338,17 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
       }
       
       if (appRef.current) {
+        if (tickerCallbackRef.current) {
+          appRef.current.ticker.remove(tickerCallbackRef.current);
+          tickerCallbackRef.current = null;
+        }
         appRef.current.destroy(true, { children: true });
         appRef.current = null;
       }
+      modelRef.current = null;
+      
+      // Clean up blob URLs from previous local model loads
+      cleanupBlobUrls();
     };
   }, [modelPath, animationLoop, physics.enabled]);
 

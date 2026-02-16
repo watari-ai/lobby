@@ -152,7 +152,7 @@ type FrontendAction =
   | TriggerEffectAction;
 
 interface UseBackendSyncOptions {
-  /** WebSocket URL (default: ws://localhost:8000/ws/live2d) */
+  /** WebSocket URL (default: ws://localhost:8100/ws/live2d) */
   url?: string;
   /** 自動再接続の有効化 (default: true) */
   autoReconnect?: boolean;
@@ -192,7 +192,7 @@ export function useBackendSync(
   options: UseBackendSyncOptions = {}
 ): UseBackendSyncResult {
   const {
-    url = 'ws://localhost:8000/ws/live2d',
+    url = 'ws://localhost:8100/ws/live2d',
     autoReconnect = true,
     reconnectInterval = 3000,
     maxReconnectAttempts = 10,

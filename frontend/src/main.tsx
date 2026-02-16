@@ -6,7 +6,7 @@ import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BackendProvider url="ws://localhost:8000/ws/live2d">
+    <BackendProvider url="ws://localhost:8100/ws/live2d">
       <App />
     </BackendProvider>
   </React.StrictMode>,

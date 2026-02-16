@@ -23,6 +23,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAlwaysOnTop: (value: boolean) => ipcRenderer.send('window-set-always-on-top', value),
   setOpacity: (value: number) => ipcRenderer.send('window-set-opacity', value),
   
+  // Model loading
+  selectModelDirectory: () => ipcRenderer.invoke('select-model-directory'),
+  readModelFile: (filePath: string) => ipcRenderer.invoke('read-model-file', filePath),
+  scanModelDirectory: (dirPath: string) => ipcRenderer.invoke('scan-model-directory', dirPath),
+
   // Auto-updater
   updater: {
     check: () => ipcRenderer.invoke('updater-check'),
@@ -65,6 +70,9 @@ declare global {
       close: () => void;
       setAlwaysOnTop: (value: boolean) => void;
       setOpacity: (value: number) => void;
+      selectModelDirectory: () => Promise<{ success: boolean; modelPath?: string; dirPath?: string; canceled?: boolean; error?: string }>;
+      readModelFile: (filePath: string) => Promise<{ success: boolean; data?: string; mime?: string; error?: string }>;
+      scanModelDirectory: (dirPath: string) => Promise<{ success: boolean; modelPath?: string; dirPath?: string; error?: string }>;
       updater: {
         check: () => Promise<{ success: boolean; version?: string; error?: string }>;
         download: () => Promise<{ success: boolean; error?: string }>;

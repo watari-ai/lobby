@@ -14,6 +14,7 @@ from .obs import router as obs_router
 from .scene import router as scene_router
 from .subtitle import router as subtitle_router
 from .thumbnail import router as thumbnail_router
+from .models import router as models_router
 from .vrm import router as vrm_router
 from .websocket import router as ws_router
 
@@ -59,6 +60,9 @@ app.include_router(highlight_router)
 
 # Clip ルーター登録
 app.include_router(clip_router)
+
+# Models (local file serving) ルーター登録
+app.include_router(models_router)
 
 # Thumbnail ルーター登録
 app.include_router(thumbnail_router)

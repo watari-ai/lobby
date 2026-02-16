@@ -67,6 +67,10 @@ interface LobbyStore {
   physics: PhysicsConfig;
   setPhysics: (config: Partial<PhysicsConfig>) => void;
 
+  // Live2D Model
+  modelPath: string;
+  setModelPath: (path: string) => void;
+
   // Live2D Params
   live2dParams: Live2DParams;
   setLive2DParams: (params: Partial<Live2DParams>) => void;
@@ -264,6 +268,10 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
   },
   setPhysics: (config) =>
     set((state) => ({ physics: { ...state.physics, ...config } })),
+
+  // Live2D Model
+  modelPath: '',
+  setModelPath: (modelPath) => set({ modelPath }),
 
   // Live2D Params
   live2dParams: {

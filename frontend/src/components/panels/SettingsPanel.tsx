@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useBackend } from '../../contexts/BackendContext';
 import { useLobbyStore } from '../../stores/lobbyStore';
 import type { Expression } from '../../types';
+import {
+  findModelFileInFileList,
+  findModelFromDrop,
+  loadLocalModelFromFiles,
+  loadLocalModelFromElectron,
+} from '../../lib/localModel';
 
 const EXPRESSIONS: Expression[] = [
   'neutral',
@@ -23,10 +29,19 @@ const EXPRESSION_EMOJI: Record<Expression, string> = {
 
 export function SettingsPanel() {
   const { connected, reconnect, reconnectAttempts, setExpression, analyzeText, speak } = useBackend();
-  const { expression } = useLobbyStore();
+  const { expression, modelPath, setModelPath } = useLobbyStore();
   const [testText, setTestText] = useState('');
   const [speakText, setSpeakText] = useState('おはロビィ！僕、倉土ロビィっす！');
   const [audioPath, setAudioPath] = useState('');
+  const [modelPathInput, setModelPathInput] = useState(modelPath);
+  const [localDirPath, setLocalDirPath] = useState('');
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const DEFAULT_MODEL_URL = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
+  const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI?.selectModelDirectory;
 
   const handleAnalyzeText = () => {
     if (testText.trim()) {
@@ -40,6 +55,88 @@ export function SettingsPanel() {
     }
   };
 
+  // Directory picker (Electron or browser fallback)
+  const handleSelectDirectory = useCallback(async () => {
+    setModelError(null);
+    if (isElectron) {
+      setModelLoading(true);
+      try {
+        const result = await (window as any).electronAPI.selectModelDirectory();
+        if (result.canceled) { setModelLoading(false); return; }
+        if (!result.success) { setModelError(result.error || 'Failed'); setModelLoading(false); return; }
+        const blobUrl = await loadLocalModelFromElectron(result.modelPath);
+        setModelPathInput(blobUrl);
+        setModelPath(blobUrl);
+      } catch (err: any) {
+        setModelError(err.message);
+      } finally {
+        setModelLoading(false);
+      }
+    } else {
+      // Browser: trigger webkitdirectory input
+      fileInputRef.current?.click();
+    }
+  }, [isElectron, setModelPath]);
+
+  // Browser file input handler (webkitdirectory)
+  const handleFileInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setModelError(null);
+    setModelLoading(true);
+    try {
+      const modelFile = findModelFileInFileList(files);
+      if (!modelFile) { setModelError('No .model3.json found in directory'); setModelLoading(false); return; }
+      // Build allFiles map with relative paths from webkitRelativePath
+      const allFiles = new Map<string, File>();
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        allFiles.set(f.webkitRelativePath || f.name, f);
+      }
+      const blobUrl = await loadLocalModelFromFiles(modelFile, allFiles);
+      setModelPathInput(blobUrl);
+      setModelPath(blobUrl);
+    } catch (err: any) {
+      setModelError(err.message);
+    } finally {
+      setModelLoading(false);
+      // Reset input so same directory can be re-selected
+      e.target.value = '';
+    }
+  }, [setModelPath]);
+
+  // Drag & Drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    setModelError(null);
+    setModelLoading(true);
+    try {
+      const result = await findModelFromDrop(e.dataTransfer);
+      if (!result) { setModelError('No .model3.json found in dropped items'); setModelLoading(false); return; }
+      const blobUrl = await loadLocalModelFromFiles(result.modelFile, result.allFiles);
+      setModelPathInput(blobUrl);
+      setModelPath(blobUrl);
+    } catch (err: any) {
+      setModelError(err.message);
+    } finally {
+      setModelLoading(false);
+    }
+  }, [setModelPath]);
+
   return (
     <div className="p-4 space-y-6">
       {/* Connection Status */}
@@ -50,7 +147,7 @@ export function SettingsPanel() {
         </h3>
         <div className="text-sm text-muted-foreground">
           <p>Status: {connected ? 'Connected' : `Disconnected${reconnectAttempts > 0 ? ` (retry ${reconnectAttempts}/10)` : ''}`}</p>
-          <p>URL: ws://localhost:8000/ws/live2d</p>
+          <p>URL: ws://localhost:8100/ws/live2d</p>
         </div>
         {!connected && (
           <button
@@ -132,6 +229,135 @@ export function SettingsPanel() {
         >
           Start Speaking
         </button>
+      </section>
+
+      {/* Live2D Model */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-medium text-foreground">Live2D Model</h3>
+        <p className="text-xs text-muted-foreground">
+          URL, local path, or drag &amp; drop a model directory.
+        </p>
+
+        {/* URL Input */}
+        <input
+          type="text"
+          value={modelPathInput.startsWith('blob:') ? '(local model loaded)' : modelPathInput}
+          onChange={(e) => setModelPathInput(e.target.value)}
+          placeholder={DEFAULT_MODEL_URL}
+          readOnly={modelPathInput.startsWith('blob:')}
+          className="w-full px-3 py-2 bg-secondary text-foreground rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setModelPath(modelPathInput)}
+            disabled={modelLoading || modelPathInput.startsWith('blob:')}
+            className="flex-1 px-3 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            Apply URL
+          </button>
+          <button
+            onClick={handleSelectDirectory}
+            disabled={modelLoading}
+            className="flex-1 px-3 py-2 bg-secondary text-secondary-foreground rounded text-sm hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            {modelLoading ? '...' : '📁 Browse'}
+          </button>
+        </div>
+
+        {/* Local Path Mount (via backend) */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={localDirPath}
+            onChange={(e) => setLocalDirPath(e.target.value)}
+            placeholder="/Users/w/ren_pro_jp/runtime"
+            className="flex-1 px-3 py-2 bg-secondary text-foreground rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            onClick={async () => {
+              if (!localDirPath.trim()) return;
+              setModelError(null);
+              setModelLoading(true);
+              try {
+                const res = await fetch('http://localhost:8100/api/models/mount', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ path: localDirPath.trim() }),
+                });
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({ detail: res.statusText }));
+                  throw new Error(err.detail || 'Mount failed');
+                }
+                const data = await res.json();
+                const fullUrl = `http://localhost:8100${data.modelUrl}`;
+                setModelPathInput(fullUrl);
+                setModelPath(fullUrl);
+              } catch (err: any) {
+                setModelError(err.message);
+              } finally {
+                setModelLoading(false);
+              }
+            }}
+            disabled={modelLoading || !localDirPath.trim()}
+            className="px-3 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {modelLoading ? '...' : 'Load'}
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Or enter a local directory path and click Load (served via backend)
+        </p>
+
+        {/* Hidden file input for browser fallback */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          // @ts-expect-error webkitdirectory is non-standard
+          webkitdirectory=""
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
+
+        {/* Drag & Drop Zone */}
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+            isDragOver
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-border text-muted-foreground hover:border-primary/50'
+          }`}
+          onClick={handleSelectDirectory}
+        >
+          <div className="text-2xl mb-1">{isDragOver ? '📥' : '🎭'}</div>
+          <p className="text-xs">
+            {isDragOver
+              ? 'Drop model here'
+              : 'Drag & drop .model3.json or model folder'}
+          </p>
+        </div>
+
+        {/* Reset to default */}
+        {modelPath && (
+          <button
+            onClick={() => { setModelPath(''); setModelPathInput(''); }}
+            className="w-full px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ↩ Reset to default model
+          </button>
+        )}
+
+        {/* Error display */}
+        {modelError && (
+          <p className="text-xs text-red-400">⚠️ {modelError}</p>
+        )}
+
+        <p className="text-xs text-muted-foreground break-all">
+          Default: {DEFAULT_MODEL_URL}
+        </p>
       </section>
 
       {/* Version Info */}

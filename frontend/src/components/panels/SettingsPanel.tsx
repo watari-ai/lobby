@@ -69,13 +69,15 @@ const EXPRESSION_EMOJI: Record<Expression, string> = {
 
 export function SettingsPanel() {
   const { connected, reconnect, reconnectAttempts, setExpression, analyzeText, speak } = useBackend();
-  const { expression, modelPath, setModelPath, gatewayUrl, setGatewayUrl } = useLobbyStore();
+  const { expression, modelPath, setModelPath, gatewayUrl, setGatewayUrl, gatewayApiKey, setGatewayApiKey } = useLobbyStore();
   const [testText, setTestText] = useState('');
   const [speakText, setSpeakText] = useState('おはロビィ！僕、倉土ロビィっす！');
   const [audioPath, setAudioPath] = useState('');
   const [modelPathInput, setModelPathInput] = useState(modelPath);
   const [localDirPath, setLocalDirPath] = useState('');
   const [gatewayUrlInput, setGatewayUrlInput] = useState(gatewayUrl);
+  const [gatewayApiKeyInput, setGatewayApiKeyInput] = useState(gatewayApiKey);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [modelLoading, setModelLoading] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -395,11 +397,11 @@ export function SettingsPanel() {
         </p>
       </section>
 
-      {/* Gateway URL */}
+      {/* Gateway URL & API Key */}
       <section className="space-y-3">
-        <h3 className="text-sm font-medium text-foreground">Gateway URL</h3>
+        <h3 className="text-sm font-medium text-foreground">Gateway Settings</h3>
         <p className="text-xs text-muted-foreground">
-          OpenClaw Gateway URL for external integrations.
+          OpenClaw Gateway URL and API Key for external integrations.
         </p>
         <input
           type="text"
@@ -408,8 +410,25 @@ export function SettingsPanel() {
           placeholder="https://gateway.example.com"
           className="w-full px-3 py-2 bg-secondary text-foreground rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />
+        <div className="relative">
+          <input
+            type={showApiKey ? 'text' : 'password'}
+            value={gatewayApiKeyInput}
+            onChange={(e) => setGatewayApiKeyInput(e.target.value)}
+            placeholder="API Key"
+            className="w-full px-3 py-2 pr-10 bg-secondary text-foreground rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            type="button"
+            onClick={() => setShowApiKey((v) => !v)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm"
+            title={showApiKey ? 'Hide' : 'Show'}
+          >
+            {showApiKey ? '🙈' : '👁'}
+          </button>
+        </div>
         <button
-          onClick={() => setGatewayUrl(gatewayUrlInput)}
+          onClick={() => { setGatewayUrl(gatewayUrlInput); setGatewayApiKey(gatewayApiKeyInput); }}
           className="w-full px-3 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition-colors"
         >
           Save

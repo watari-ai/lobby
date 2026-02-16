@@ -9,7 +9,7 @@ interface ChatMessage {
 }
 
 export function ChatPanel() {
-  const { gatewayUrl } = useLobbyStore();
+  const { gatewayUrl, gatewayApiKey } = useLobbyStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +37,7 @@ export function ChatPanel() {
       const res = await fetch('http://localhost:8100/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, gateway_url: gatewayUrl }),
+        body: JSON.stringify({ message: text, gateway_url: gatewayUrl, api_key: gatewayApiKey }),
       });
 
       if (!res.ok) {
@@ -63,7 +63,7 @@ export function ChatPanel() {
     } finally {
       setLoading(false);
     }
-  }, [input, gatewayUrl, loading]);
+  }, [input, gatewayUrl, gatewayApiKey, loading]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

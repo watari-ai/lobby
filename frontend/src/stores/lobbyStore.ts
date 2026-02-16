@@ -79,6 +79,8 @@ interface LobbyStore {
   // Gateway
   gatewayUrl: string;
   setGatewayUrl: (url: string) => void;
+  gatewayApiKey: string;
+  setGatewayApiKey: (apiKey: string) => void;
 }
 
 export const useLobbyStore = create<LobbyStore>()(persist((set) => ({
@@ -295,10 +297,13 @@ export const useLobbyStore = create<LobbyStore>()(persist((set) => ({
   // Gateway
   gatewayUrl: '',
   setGatewayUrl: (gatewayUrl) => set({ gatewayUrl }),
+  gatewayApiKey: '',
+  setGatewayApiKey: (gatewayApiKey) => set({ gatewayApiKey }),
 }), {
   name: 'lobby-store',
   partialize: (state) => ({
     gatewayUrl: state.gatewayUrl,
+    gatewayApiKey: state.gatewayApiKey,
     modelPath: state.modelPath,
   }),
 }));

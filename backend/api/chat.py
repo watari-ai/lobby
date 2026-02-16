@@ -1,68 +1,50 @@
-"""Chat proxy endpoint - フロントエンドからOpenClaw Gatewayへのプロキシ
-
-OpenClaw CLIの `openclaw agent` コマンドを使用して、
-エージェントのパーソナリティ（SOUL.md等）が反映されたレスポンスを返す。
-"""
-
-import asyncio
-import json
+"""Chat proxy endpoint - フロントエンドからOpenClaw Gatewayへのプロキシ"""
 
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException
+import httpx
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
     message: str
-    gateway_url: str = "http://localhost:18790"  # unused but kept for compat
+    gateway_url: str = "http://localhost:18790"
     api_key: str = ""
-    session_id: str = "lobby-web"
 
 
 @router.post("/chat")
 async def chat_proxy(req: ChatRequest):
-    """フロントエンドからのチャットリクエストをOpenClaw Agentに転送"""
-    cmd = [
-        "openclaw", "agent",
-        "--session-id", req.session_id,
-        "--message", req.message,
-        "--json",
-        "--timeout", "120",
-    ]
+    """フロントエンドからのチャットリクエストをOpenClaw Gatewayに転送"""
+    base_url = req.gateway_url.rstrip("/")
+    url = f"{base_url}/v1/chat/completions"
+
+    headers = {"Content-Type": "application/json"}
+    if req.api_key:
+        headers["Authorization"] = f"Bearer {req.api_key}"
+
+    payload = {
+        "messages": [{"role": "user", "content": req.message}],
+        "stream": False,
+        "user": "lobby-app",
+    }
 
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=130)
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
 
-        if proc.returncode != 0:
-            err = stderr.decode().strip() if stderr else "Unknown error"
-            raise HTTPException(status_code=502, detail=f"Agent error: {err}")
+            # Extract response text from OpenAI-compatible format
+            choices = data.get("choices", [])
+            if choices:
+                text = choices[0].get("message", {}).get("content", "")
+            else:
+                text = str(data)
 
-        data = json.loads(stdout.decode())
+            return {"response": text}
 
-        if data.get("status") != "ok":
-            raise HTTPException(
-                status_code=502,
-                detail=f"Agent returned status: {data.get('status')}",
-            )
-
-        # Extract text from payloads
-        payloads = data.get("result", {}).get("payloads", [])
-        texts = [p["text"] for p in payloads if p.get("text")]
-        response_text = "\n".join(texts) if texts else ""
-
-        return {"response": response_text}
-
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Agent timeout")
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=502, detail=f"Invalid agent response: {e}")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Agent connection error: {e}")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Gateway connection error: {e}")

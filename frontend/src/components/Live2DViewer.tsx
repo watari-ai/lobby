@@ -194,18 +194,16 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const app = new PIXI.Application();
+    const app = new PIXI.Application({
+      width: containerRef.current!.clientWidth,
+      height: containerRef.current!.clientHeight,
+      backgroundColor: 0x1a1a2e,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+    });
     
     const initApp = async () => {
-      await app.init({
-        width: containerRef.current!.clientWidth,
-        height: containerRef.current!.clientHeight,
-        backgroundColor: 0x1a1a2e,
-        resolution: window.devicePixelRatio || 1,
-        autoDensity: true,
-      });
-      
-      containerRef.current!.appendChild(app.canvas);
+      containerRef.current!.appendChild(app.view as HTMLCanvasElement);
       appRef.current = app;
 
       // モデルをロード

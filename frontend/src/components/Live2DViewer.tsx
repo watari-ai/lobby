@@ -7,7 +7,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as PIXI from 'pixi.js';
-import { cleanupBlobUrls } from '../lib/localModel';
+// Blob URL cleanup no longer needed — local models are served via backend HTTP
 
 // Live2D型定義
 interface Live2DParams {
@@ -347,10 +347,10 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
       }
       modelRef.current = null;
       
-      // Clean up blob URLs from previous local model loads
-      cleanupBlobUrls();
+      // No blob URL cleanup needed — models are served via backend HTTP
     };
-  }, [modelPath, animationLoop, physics.enabled]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelPath]);
 
   // ターゲットパラメータの更新（props変更時）
   useEffect(() => {

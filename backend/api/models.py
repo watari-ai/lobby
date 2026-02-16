@@ -5,9 +5,11 @@ so the browser can load Live2D models without file:// access.
 """
 
 import mimetypes
+import shutil
+import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File as FastAPIFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 # Currently mounted directory (single mount for simplicity)
 _mounted_dir: Path | None = None
 _model3_filename: str | None = None
+_temp_dirs: list[str] = []  # Track temp dirs for cleanup
 
 
 class MountRequest(BaseModel):
@@ -53,6 +56,53 @@ async def mount_model(req: MountRequest):
     return MountResponse(
         modelUrl=f"/api/models/files/{_model3_filename}",
         model3json=_model3_filename,
+    )
+
+
+@router.post("/upload")
+async def upload_model(files: list[UploadFile] = FastAPIFile(...)):
+    """Upload model files from browser, save to temp dir, and mount.
+    
+    Each file's filename should be a relative path (e.g. "textures/foo.png").
+    """
+    global _mounted_dir, _model3_filename
+
+    # Clean up previous temp dir
+    if _temp_dirs:
+        for d in _temp_dirs:
+            shutil.rmtree(d, ignore_errors=True)
+        _temp_dirs.clear()
+
+    tmp = tempfile.mkdtemp(prefix="lobby-model-")
+    _temp_dirs.append(tmp)
+    tmp_path = Path(tmp)
+
+    model3_name: str | None = None
+
+    for f in files:
+        if not f.filename:
+            continue
+        dest = (tmp_path / f.filename).resolve()
+        # Prevent path traversal
+        if not str(dest).startswith(tmp):
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        content = await f.read()
+        dest.write_bytes(content)
+        if f.filename.endswith(".model3.json"):
+            model3_name = f.filename
+
+    if not model3_name:
+        shutil.rmtree(tmp, ignore_errors=True)
+        _temp_dirs.remove(tmp)
+        raise HTTPException(status_code=400, detail="No .model3.json in uploaded files")
+
+    _mounted_dir = tmp_path
+    _model3_filename = model3_name
+
+    return MountResponse(
+        modelUrl=f"/api/models/files/{model3_name}",
+        model3json=model3_name,
     )
 
 

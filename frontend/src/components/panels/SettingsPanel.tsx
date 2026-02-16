@@ -5,9 +5,49 @@ import type { Expression } from '../../types';
 import {
   findModelFileInFileList,
   findModelFromDrop,
-  loadLocalModelFromFiles,
-  loadLocalModelFromElectron,
 } from '../../lib/localModel';
+
+const BACKEND_URL = 'http://localhost:8100';
+
+/**
+ * Upload local files to backend temp dir and return an HTTP model URL.
+ * Files are sent with their relative paths as filenames so the backend
+ * recreates the directory structure.
+ */
+async function uploadModelFiles(allFiles: Map<string, File>): Promise<string> {
+  const formData = new FormData();
+  for (const [relativePath, file] of allFiles) {
+    // Use relative path as filename so backend preserves structure
+    formData.append('files', file, relativePath);
+  }
+  const res = await fetch(`${BACKEND_URL}/api/models/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || 'Upload failed');
+  }
+  const data = await res.json();
+  return `${BACKEND_URL}${data.modelUrl}`;
+}
+
+/**
+ * Mount a local directory path via backend and return an HTTP model URL.
+ */
+async function mountModelDir(dirPath: string): Promise<string> {
+  const res = await fetch(`${BACKEND_URL}/api/models/mount`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: dirPath }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || 'Mount failed');
+  }
+  const data = await res.json();
+  return `${BACKEND_URL}${data.modelUrl}`;
+}
 
 const EXPRESSIONS: Expression[] = [
   'neutral',
@@ -64,9 +104,12 @@ export function SettingsPanel() {
         const result = await (window as any).electronAPI.selectModelDirectory();
         if (result.canceled) { setModelLoading(false); return; }
         if (!result.success) { setModelError(result.error || 'Failed'); setModelLoading(false); return; }
-        const blobUrl = await loadLocalModelFromElectron(result.modelPath);
-        setModelPathInput(blobUrl);
-        setModelPath(blobUrl);
+        // Mount the directory via backend API — gives us proper HTTP URLs
+        // that pixi-live2d-display can resolve relative paths against
+        const dirPath = result.modelPath.substring(0, result.modelPath.lastIndexOf('/'));
+        const httpUrl = await mountModelDir(dirPath);
+        setModelPathInput(httpUrl);
+        setModelPath(httpUrl);
       } catch (err: any) {
         setModelError(err.message);
       } finally {
@@ -93,9 +136,10 @@ export function SettingsPanel() {
         const f = files[i];
         allFiles.set(f.webkitRelativePath || f.name, f);
       }
-      const blobUrl = await loadLocalModelFromFiles(modelFile, allFiles);
-      setModelPathInput(blobUrl);
-      setModelPath(blobUrl);
+      // Upload to backend and get HTTP URL (avoids blob: URL issues)
+      const httpUrl = await uploadModelFiles(allFiles);
+      setModelPathInput(httpUrl);
+      setModelPath(httpUrl);
     } catch (err: any) {
       setModelError(err.message);
     } finally {
@@ -127,9 +171,10 @@ export function SettingsPanel() {
     try {
       const result = await findModelFromDrop(e.dataTransfer);
       if (!result) { setModelError('No .model3.json found in dropped items'); setModelLoading(false); return; }
-      const blobUrl = await loadLocalModelFromFiles(result.modelFile, result.allFiles);
-      setModelPathInput(blobUrl);
-      setModelPath(blobUrl);
+      // Upload to backend and get HTTP URL (avoids blob: URL issues)
+      const httpUrl = await uploadModelFiles(result.allFiles);
+      setModelPathInput(httpUrl);
+      setModelPath(httpUrl);
     } catch (err: any) {
       setModelError(err.message);
     } finally {
@@ -241,10 +286,9 @@ export function SettingsPanel() {
         {/* URL Input */}
         <input
           type="text"
-          value={modelPathInput.startsWith('blob:') ? '(local model loaded)' : modelPathInput}
+          value={modelPathInput}
           onChange={(e) => setModelPathInput(e.target.value)}
           placeholder={DEFAULT_MODEL_URL}
-          readOnly={modelPathInput.startsWith('blob:')}
           className="w-full px-3 py-2 bg-secondary text-foreground rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />
 
@@ -252,7 +296,7 @@ export function SettingsPanel() {
         <div className="flex gap-2">
           <button
             onClick={() => setModelPath(modelPathInput)}
-            disabled={modelLoading || modelPathInput.startsWith('blob:')}
+            disabled={modelLoading}
             className="flex-1 px-3 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             Apply URL
@@ -281,19 +325,9 @@ export function SettingsPanel() {
               setModelError(null);
               setModelLoading(true);
               try {
-                const res = await fetch('http://localhost:8100/api/models/mount', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ path: localDirPath.trim() }),
-                });
-                if (!res.ok) {
-                  const err = await res.json().catch(() => ({ detail: res.statusText }));
-                  throw new Error(err.detail || 'Mount failed');
-                }
-                const data = await res.json();
-                const fullUrl = `http://localhost:8100${data.modelUrl}`;
-                setModelPathInput(fullUrl);
-                setModelPath(fullUrl);
+                const httpUrl = await mountModelDir(localDirPath.trim());
+                setModelPathInput(httpUrl);
+                setModelPath(httpUrl);
               } catch (err: any) {
                 setModelError(err.message);
               } finally {

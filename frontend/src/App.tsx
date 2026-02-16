@@ -8,6 +8,7 @@ import { SubtitlePanel } from './components/panels/SubtitlePanel';
 import { AudioPanel } from './components/panels/AudioPanel';
 import { EffectsPanel } from './components/panels/EffectsPanel';
 import { SettingsPanel } from './components/panels/SettingsPanel';
+import { ChatPanel } from './components/panels/ChatPanel';
 import Live2DViewer from './components/Live2DViewer';
 import SubtitleDisplay from './components/SubtitleDisplay';
 import StreamingIndicator from './components/StreamingIndicator';
@@ -22,6 +23,7 @@ const PANEL_TITLES: Record<PanelType, string> = {
   subtitle: '💬 Subtitle',
   audio: '🎵 Audio',
   effects: '✨ Effects',
+  chat: '💬 Chat',
   settings: '⚙️ Settings',
 };
 
@@ -44,6 +46,8 @@ function App() {
         return <AudioPanel />;
       case 'effects':
         return <EffectsPanel />;
+      case 'chat':
+        return <ChatPanel />;
       case 'settings':
         return <SettingsPanel />;
       default:

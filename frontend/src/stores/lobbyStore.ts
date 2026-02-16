@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type {
   CameraState,
   CameraPreset,
@@ -74,9 +75,13 @@ interface LobbyStore {
   // Live2D Params
   live2dParams: Live2DParams;
   setLive2DParams: (params: Partial<Live2DParams>) => void;
+
+  // Gateway
+  gatewayUrl: string;
+  setGatewayUrl: (url: string) => void;
 }
 
-export const useLobbyStore = create<LobbyStore>((set) => ({
+export const useLobbyStore = create<LobbyStore>()(persist((set) => ({
   // Connection
   connected: false,
   backendUrl: 'ws://localhost:8100',
@@ -286,4 +291,14 @@ export const useLobbyStore = create<LobbyStore>((set) => ({
   },
   setLive2DParams: (params) =>
     set((state) => ({ live2dParams: { ...state.live2dParams, ...params } })),
+
+  // Gateway
+  gatewayUrl: '',
+  setGatewayUrl: (gatewayUrl) => set({ gatewayUrl }),
+}), {
+  name: 'lobby-store',
+  partialize: (state) => ({
+    gatewayUrl: state.gatewayUrl,
+    modelPath: state.modelPath,
+  }),
 }));

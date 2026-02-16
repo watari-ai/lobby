@@ -69,12 +69,13 @@ const EXPRESSION_EMOJI: Record<Expression, string> = {
 
 export function SettingsPanel() {
   const { connected, reconnect, reconnectAttempts, setExpression, analyzeText, speak } = useBackend();
-  const { expression, modelPath, setModelPath } = useLobbyStore();
+  const { expression, modelPath, setModelPath, gatewayUrl, setGatewayUrl } = useLobbyStore();
   const [testText, setTestText] = useState('');
   const [speakText, setSpeakText] = useState('おはロビィ！僕、倉土ロビィっす！');
   const [audioPath, setAudioPath] = useState('');
   const [modelPathInput, setModelPathInput] = useState(modelPath);
   const [localDirPath, setLocalDirPath] = useState('');
+  const [gatewayUrlInput, setGatewayUrlInput] = useState(gatewayUrl);
   const [modelLoading, setModelLoading] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -392,6 +393,27 @@ export function SettingsPanel() {
         <p className="text-xs text-muted-foreground break-all">
           Default: {DEFAULT_MODEL_URL}
         </p>
+      </section>
+
+      {/* Gateway URL */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-medium text-foreground">Gateway URL</h3>
+        <p className="text-xs text-muted-foreground">
+          OpenClaw Gateway URL for external integrations.
+        </p>
+        <input
+          type="text"
+          value={gatewayUrlInput}
+          onChange={(e) => setGatewayUrlInput(e.target.value)}
+          placeholder="https://gateway.example.com"
+          className="w-full px-3 py-2 bg-secondary text-foreground rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <button
+          onClick={() => setGatewayUrl(gatewayUrlInput)}
+          className="w-full px-3 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition-colors"
+        >
+          Save
+        </button>
       </section>
 
       {/* Version Info */}

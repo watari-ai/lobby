@@ -75,7 +75,7 @@ async def upload_model(files: list[UploadFile] = FastAPIFile(...)):
 
     tmp = tempfile.mkdtemp(prefix="lobby-model-")
     _temp_dirs.append(tmp)
-    tmp_path = Path(tmp)
+    tmp_path = Path(tmp).resolve()  # resolve /var → /private/var on macOS
 
     model3_name: str | None = None
 
@@ -84,7 +84,7 @@ async def upload_model(files: list[UploadFile] = FastAPIFile(...)):
             continue
         dest = (tmp_path / f.filename).resolve()
         # Prevent path traversal
-        if not str(dest).startswith(tmp):
+        if not str(dest).startswith(str(tmp_path)):
             continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         content = await f.read()

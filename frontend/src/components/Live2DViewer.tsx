@@ -230,20 +230,35 @@ const Live2DViewer: React.FC<Live2DViewerProps> = ({
       try {
         const Model = await loadLive2DLibrary();
         
-        // TickerをLive2DModelに登録（描画更新に必須）
-        // registerTickerは{ shared: { add, remove } }を期待する
-        // Vite ESM環境ではPIXI.Ticker.sharedが取得できないため、app.tickerをラップして渡す
-        Model.registerTicker({ shared: app.ticker });
+        // Do NOT call Model.registerTicker() — it sets a module-level
+        // variable that persists across React re-mounts and causes
+        // "Cannot read properties of null (reading 'next')" when the
+        // library tries to add to a destroyed Ticker during init().
+        // Instead, register a no-op ticker so autoUpdate = true in
+        // init() silently does nothing, then we drive updates manually.
+        Model.registerTicker({
+          shared: {
+            add: () => {},
+            remove: () => {},
+            deltaMS: 0,
+          },
+        });
         
         // デモモデルまたは指定されたモデルをロード
         const path = modelPath || 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json';
         
-        console.log('[Live2D] Loading model:', path);
-        const model = await Model.from(path);
+        // Guard against component unmount during async load
+        if (!containerRef.current) return;
         
-        // Disable the library's autoUpdate — it relies on a module-level
-        // ticker reference (Oe) that can go stale in React strict-mode
-        // double-mounts.  We'll drive updates manually below.
+        console.log('[Live2D] Loading model:', path);
+        const model = await Model.from(path, { autoUpdate: false });
+        
+        // Check if component was unmounted during model load
+        if (!containerRef.current) {
+          model.destroy();
+          return;
+        }
+        
         model.autoUpdate = false;
         
         // モデルをステージに追加

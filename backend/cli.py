@@ -340,6 +340,134 @@ def serve(
 
 
 @app.command()
+def doctor(
+    config_path: Optional[Path] = typer.Option(
+        None,
+        "--config", "-c",
+        help="設定ファイルパス（lobby.yaml）",
+    ),
+):
+    """環境診断 — 依存ツール・サーバーの状態を一括チェック"""
+    import shutil
+    import subprocess
+    import sys
+
+    import httpx
+
+    from .core.config import load_config
+
+    ok_count = 0
+    warn_count = 0
+    fail_count = 0
+
+    def _ok(msg: str):
+        nonlocal ok_count
+        ok_count += 1
+        console.print(f"  [green]✓[/green] {msg}")
+
+    def _warn(msg: str):
+        nonlocal warn_count
+        warn_count += 1
+        console.print(f"  [yellow]⚠[/yellow] {msg}")
+
+    def _fail(msg: str):
+        nonlocal fail_count
+        fail_count += 1
+        console.print(f"  [red]✗[/red] {msg}")
+
+    console.print("[bold cyan]Lobby Doctor — 環境診断[/bold cyan]\n")
+
+    # --- Python ---
+    console.print("[bold]Python[/bold]")
+    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    if sys.version_info >= (3, 11):
+        _ok(f"Python {py_ver}")
+    else:
+        _fail(f"Python {py_ver} (3.11+ required)")
+
+    # --- ffmpeg / ffprobe ---
+    console.print("\n[bold]FFmpeg[/bold]")
+    for tool in ("ffmpeg", "ffprobe"):
+        path = shutil.which(tool)
+        if path:
+            try:
+                ver = subprocess.check_output(
+                    [tool, "-version"], stderr=subprocess.STDOUT, text=True,
+                ).split("\n")[0]
+                _ok(f"{tool}: {ver}")
+            except Exception:
+                _ok(f"{tool}: found at {path}")
+        else:
+            _fail(f"{tool} not found — install via: brew install ffmpeg")
+
+    # --- Config ---
+    console.print("\n[bold]Config[/bold]")
+    data: dict = {}
+    cfg_file = config_path or Path("config/lobby.yaml")
+    if cfg_file.exists():
+        _ok(f"Config: {cfg_file}")
+        data = load_config(cfg_file)
+    else:
+        _warn(f"Config not found: {cfg_file}")
+
+    # --- TTS server ---
+    console.print("\n[bold]TTS Server[/bold]")
+    tts_conf = data.get("tts", {})
+    tts_url = tts_conf.get("base_url", "http://localhost:8001")
+    tts_voice = tts_conf.get("voice", "lobby")
+    try:
+        r = httpx.get(f"{tts_url.rstrip('/').removesuffix('/v1')}/health", timeout=3)
+        if r.status_code == 200:
+            _ok(f"TTS reachable: {tts_url} (voice: {tts_voice})")
+        else:
+            _warn(f"TTS responded {r.status_code}: {tts_url}")
+    except httpx.ConnectError:
+        _warn(f"TTS not running: {tts_url}")
+    except Exception as e:
+        _warn(f"TTS check failed: {e}")
+
+    # --- Frontend ---
+    console.print("\n[bold]Frontend[/bold]")
+    fe_dir = Path("frontend")
+    if (fe_dir / "node_modules").exists():
+        _ok("node_modules installed")
+    elif fe_dir.exists():
+        _warn("node_modules missing — run: cd frontend && pnpm install")
+    else:
+        _warn("frontend/ directory not found")
+
+    if shutil.which("pnpm"):
+        _ok("pnpm available")
+    else:
+        _warn("pnpm not found — install: npm i -g pnpm")
+
+    # --- Models directory ---
+    console.print("\n[bold]Models[/bold]")
+    models_dir = Path("models")
+    if models_dir.exists():
+        model_files = list(models_dir.glob("*"))
+        if model_files:
+            _ok(f"models/ contains {len(model_files)} item(s)")
+        else:
+            _warn("models/ is empty — add avatar assets")
+    else:
+        _warn("models/ not found")
+
+    # --- Summary ---
+    console.print()
+    total = ok_count + warn_count + fail_count
+    console.print(f"[bold]Result: {ok_count}/{total} OK", end="")
+    if warn_count:
+        console.print(f", [yellow]{warn_count} warning(s)[/yellow]", end="")
+    if fail_count:
+        console.print(f", [red]{fail_count} error(s)[/red]", end="")
+    console.print("[/bold]")
+
+    if fail_count:
+        raise typer.Exit(1)
+
+
+@app.command()
 def version():
     """バージョン表示"""
     from . import __version__

@@ -18,6 +18,7 @@ from .models import router as models_router
 from .vrm import router as vrm_router
 from .websocket import router as ws_router
 from .chat import router as chat_router
+from .recording import router as recording_router
 
 # アプリケーション作成
 app = FastAPI(
@@ -70,6 +71,9 @@ app.include_router(thumbnail_router)
 
 # Chat proxy ルーター登録
 app.include_router(chat_router)
+
+# Recording Pipeline ルーター登録
+app.include_router(recording_router)
 
 
 @app.get("/")

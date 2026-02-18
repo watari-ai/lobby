@@ -382,7 +382,7 @@ def validate(
     for line in script.lines:
         emotion_counts[line.emotion.value] += 1
 
-    console.print(f"\n[bold]感情分布:[/bold]")
+    console.print("\n[bold]感情分布:[/bold]")
     for emotion, count in emotion_counts.most_common():
         bar = "█" * count
         console.print(f"  {emotion:12s} {bar} ({count})")
@@ -406,13 +406,13 @@ def validate(
 
     # 詳細表示
     if verbose:
-        console.print(f"\n[bold]全行:[/bold]")
+        console.print("\n[bold]全行:[/bold]")
         for i, line in enumerate(script.lines, 1):
             emotion_tag = f"[{line.emotion.value}]" if line.emotion != Emotion.NEUTRAL else ""
             gesture_tag = f" 🤚{line.gesture}" if line.gesture else ""
             console.print(f"  {i:3d}. {emotion_tag:12s} {line.text[:60]}{gesture_tag}")
 
-    console.print(f"\n[green]✅ バリデーション完了[/green]")
+    console.print("\n[green]✅ バリデーション完了[/green]")
 
 
 @app.command()
@@ -541,6 +541,117 @@ def doctor(
 
     if fail_count:
         raise typer.Exit(1)
+
+
+@app.command()
+def init(
+    project_dir: Path = typer.Argument(
+        Path("."),
+        help="プロジェクトディレクトリ（デフォルト: カレントディレクトリ）",
+    ),
+    name: Optional[str] = typer.Option(
+        None,
+        "--name", "-n",
+        help="プロジェクト名（デフォルト: ディレクトリ名）",
+    ),
+):
+    """新規プロジェクトをセットアップ（設定・ディレクトリ・サンプル台本を生成）"""
+    import shutil
+    import textwrap
+
+    project_dir = project_dir.resolve()
+    project_name = name or project_dir.name
+
+    console.print(f"[bold cyan]Lobby プロジェクト初期化: {project_name}[/bold cyan]\n")
+
+    # ディレクトリ作成
+    dirs = ["scripts", "models", "output", "config"]
+    for d in dirs:
+        (project_dir / d).mkdir(parents=True, exist_ok=True)
+        console.print(f"  [green]✓[/green] {d}/")
+
+    # 設定ファイル
+    config_file = project_dir / "config" / "lobby.yaml"
+    if not config_file.exists():
+        config_file.write_text(textwrap.dedent(f"""\
+            # Lobby設定 — {project_name}
+            # ドキュメント: https://github.com/watari-ai/lobby/blob/main/docs/GETTING_STARTED.md
+
+            server:
+              host: "0.0.0.0"
+              port: 8100
+
+            tts:
+              provider: miotts        # miotts | qwen3-tts | openai
+              base_url: http://localhost:8001
+              voice: lobby
+              response_format: base64
+
+              emotion_prompts:
+                happy: "明るく楽しそうに"
+                sad: "しんみりと悲しげに"
+                excited: "テンション高く興奮して"
+                angry: "怒った声で"
+                surprised: "驚いた声で"
+                neutral: ""
+
+            avatar:
+              base: ""               # models/にアバター画像を配置
+              mouth_closed: ""
+              mouth_open_s: ""
+
+            lipsync:
+              fps: 30
+              mouth_sensitivity: 0.5
+              blink_interval_ms: 3000
+
+            video:
+              fps: 30
+              width: 1920
+              height: 1080
+              codec: libx264
+              crf: 23
+              preset: medium
+
+            subtitle:
+              enabled: true
+              burn_in: false
+              formats:
+                - srt
+
+            bgm:
+              enabled: false
+
+            output_dir: ./output
+        """), encoding="utf-8")
+        console.print(f"  [green]✓[/green] config/lobby.yaml")
+    else:
+        console.print(f"  [yellow]⏭[/yellow] config/lobby.yaml (already exists)")
+
+    # サンプル台本
+    sample_script = project_dir / "scripts" / "sample.txt"
+    if not sample_script.exists():
+        sample_script.write_text(textwrap.dedent("""\
+            おはロビィ！僕、倉土ロビィっす！
+            [excited] 今日はみんなに自己紹介するっす！
+            [happy] よろしくお願いしますっす！
+        """), encoding="utf-8")
+        console.print(f"  [green]✓[/green] scripts/sample.txt")
+    else:
+        console.print(f"  [yellow]⏭[/yellow] scripts/sample.txt (already exists)")
+
+    # .gitignore
+    gitignore = project_dir / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text("output/\n*.mp3\n*.mp4\n*.wav\n.DS_Store\n", encoding="utf-8")
+        console.print(f"  [green]✓[/green] .gitignore")
+
+    console.print(f"\n[green]✅ プロジェクト初期化完了！[/green]")
+    console.print(f"\n[bold]次のステップ:[/bold]")
+    console.print(f"  1. models/ にアバター画像を配置")
+    console.print(f"  2. config/lobby.yaml を編集")
+    console.print(f"  3. lobby doctor --config config/lobby.yaml で環境チェック")
+    console.print(f"  4. lobby record-video scripts/sample.txt --config config/lobby.yaml")
 
 
 @app.command()

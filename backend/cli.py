@@ -340,6 +340,82 @@ def serve(
 
 
 @app.command()
+def validate(
+    script_path: Path = typer.Argument(..., help="台本ファイルパス (.txt, .json)"),
+    verbose: bool = typer.Option(False, "--verbose", "-V", help="各行の詳細を表示"),
+):
+    """台本をバリデーション＆プレビュー（収録前の確認用）"""
+    from collections import Counter
+
+    from .core.emotion import Emotion
+
+    if not script_path.exists():
+        console.print(f"[red]Error: Script not found: {script_path}[/red]")
+        raise typer.Exit(1)
+
+    try:
+        script = Script.from_file(script_path)
+    except Exception as e:
+        console.print(f"[red]Error parsing script: {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold cyan]台本プレビュー: {script.title}[/bold cyan]\n")
+
+    # 基本情報
+    total_lines = len(script.lines)
+    total_chars = sum(len(line.text) for line in script.lines)
+    total_wait = sum(line.wait_after for line in script.lines)
+
+    # 推定再生時間（日本語: ~7文字/秒 + 待機時間）
+    chars_per_sec = 7.0
+    estimated_speech_sec = total_chars / chars_per_sec
+    estimated_total_sec = estimated_speech_sec + total_wait
+    est_min = int(estimated_total_sec // 60)
+    est_sec = int(estimated_total_sec % 60)
+
+    console.print(f"  行数: [bold]{total_lines}[/bold]")
+    console.print(f"  文字数: [bold]{total_chars}[/bold]")
+    console.print(f"  推定再生時間: [bold]{est_min}:{est_sec:02d}[/bold] (約{total_chars / chars_per_sec:.0f}秒 + 待機{total_wait:.1f}秒)")
+
+    # 感情分布
+    emotion_counts: Counter = Counter()
+    for line in script.lines:
+        emotion_counts[line.emotion.value] += 1
+
+    console.print(f"\n[bold]感情分布:[/bold]")
+    for emotion, count in emotion_counts.most_common():
+        bar = "█" * count
+        console.print(f"  {emotion:12s} {bar} ({count})")
+
+    # 警告チェック
+    warnings = []
+    for i, line in enumerate(script.lines, 1):
+        if len(line.text) > 200:
+            warnings.append(f"行{i}: 長すぎ ({len(line.text)}文字) — TTS品質低下の可能性")
+        if len(line.text) < 2:
+            warnings.append(f"行{i}: 短すぎ ({len(line.text)}文字)")
+        if line.emotion == Emotion.NEUTRAL and any(
+            c in line.text for c in "！!？?♪"
+        ):
+            warnings.append(f"行{i}: 感情タグなし但し感嘆符あり — タグ付け推奨")
+
+    if warnings:
+        console.print(f"\n[yellow]⚠ 警告 ({len(warnings)}):[/yellow]")
+        for w in warnings:
+            console.print(f"  [yellow]- {w}[/yellow]")
+
+    # 詳細表示
+    if verbose:
+        console.print(f"\n[bold]全行:[/bold]")
+        for i, line in enumerate(script.lines, 1):
+            emotion_tag = f"[{line.emotion.value}]" if line.emotion != Emotion.NEUTRAL else ""
+            gesture_tag = f" 🤚{line.gesture}" if line.gesture else ""
+            console.print(f"  {i:3d}. {emotion_tag:12s} {line.text[:60]}{gesture_tag}")
+
+    console.print(f"\n[green]✅ バリデーション完了[/green]")
+
+
+@app.command()
 def doctor(
     config_path: Optional[Path] = typer.Option(
         None,

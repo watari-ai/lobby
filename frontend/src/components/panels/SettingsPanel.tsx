@@ -62,6 +62,7 @@ const EXPRESSION_EMOJI: Record<Expression, string> = {
   neutral: '😐',
   happy: '😊',
   sad: '😢',
+  excited: '🤩',
   angry: '😠',
   surprised: '😲',
   thinking: '🤔',

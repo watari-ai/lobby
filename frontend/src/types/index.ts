@@ -118,7 +118,7 @@ export interface EffectState {
 }
 
 // Expression types
-export const EXPRESSIONS = ['neutral', 'happy', 'sad', 'excited', 'surprised', 'angry'] as const;
+export const EXPRESSIONS = ['neutral', 'happy', 'sad', 'excited', 'surprised', 'angry', 'thinking'] as const;
 export type Expression = typeof EXPRESSIONS[number];
 
 // Physics types

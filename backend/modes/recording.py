@@ -10,6 +10,7 @@ from loguru import logger
 
 from ..core.emotion import Emotion, EmotionAnalyzer
 from ..core.tts import TTSClient, TTSConfig
+from ..core.video import get_audio_duration_ms
 
 
 @dataclass
@@ -171,8 +172,11 @@ class RecordingMode:
                     output_path=audio_path,
                 )
 
-                # 簡易的な長さ推定（実際はffprobeで取得すべき）
-                duration_ms = int(len(audio_data) / 32)  # 概算
+                # ffprobeで正確な長さを取得
+                duration_ms = await get_audio_duration_ms(audio_path)
+                if duration_ms <= 0:
+                    # フォールバック: バイト数からの概算
+                    duration_ms = int(len(audio_data) / 32)
 
                 yield RecordingResult(
                     line=line,

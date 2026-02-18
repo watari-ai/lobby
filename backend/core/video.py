@@ -347,6 +347,120 @@ class VideoComposer:
             return False
 
 
+    async def mix_bgm(
+        self,
+        video_path: Path,
+        bgm_path: Path,
+        output_path: Path,
+        bgm_volume: float = 0.15,
+        duck_volume: float = 0.08,
+        fade_in_ms: int = 2000,
+        fade_out_ms: int = 3000,
+    ) -> bool:
+        """動画にBGMをミックス（音声がある区間は自動ダッキング）
+
+        Args:
+            video_path: 入力動画パス（音声トラック付き）
+            bgm_path: BGMファイルパス
+            output_path: 出力動画パス
+            bgm_volume: BGM基本音量 (0.0-1.0)
+            duck_volume: 音声再生中のBGM音量 (0.0-1.0)
+            fade_in_ms: BGMフェードイン時間（ミリ秒）
+            fade_out_ms: BGMフェードアウト時間（ミリ秒）
+
+        Returns:
+            成功したかどうか
+        """
+        if not self._ffmpeg_path:
+            logger.error("ffmpeg not available")
+            return False
+
+        if not video_path.exists():
+            logger.error(f"Video not found: {video_path}")
+            return False
+
+        if not bgm_path.exists():
+            logger.error(f"BGM not found: {bgm_path}")
+            return False
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        fade_in_s = fade_in_ms / 1000
+        fade_out_s = fade_out_ms / 1000
+
+        # sidechaincompressでボイスに合わせてBGMを自動ダッキング
+        # 1. BGMにフェードイン/アウト + 音量調整
+        # 2. ボイスをサイドチェインキーにしてBGMをコンプレス
+        # 3. ボイスとダッキングBGMをミックス
+        filter_complex = (
+            # BGM: ループ、音量調整、フェードイン
+            f"[1:a]aloop=loop=-1:size=2e+09,volume={bgm_volume},"
+            f"afade=t=in:d={fade_in_s}[bgm_raw];"
+            # ボイスを分岐（ミックス用 + サイドチェインキー用）
+            f"[0:a]asplit=2[voice][voice_key];"
+            # サイドチェインコンプレッサーでダッキング
+            f"[bgm_raw][voice_key]sidechaincompress="
+            f"threshold=0.02:ratio=8:attack=50:release=300:"
+            f"level_sc=1[bgm_ducked];"
+            # ボイスとダッキング済みBGMをミックス
+            f"[voice][bgm_ducked]amix=inputs=2:duration=first:"
+            f"dropout_transition=0[mixed];"
+            # 最後にフェードアウト
+            f"[mixed]afade=t=out:st=0:d={fade_out_s}[aout]"
+        )
+
+        # フェードアウトのstはduration不明なので、ffmpegの-shortestで対応
+        # 代わりに動画の長さを取得してフェードアウト位置を計算
+        duration_ms = await get_audio_duration_ms(video_path)
+        if duration_ms > 0:
+            fade_out_start_s = max(0, (duration_ms / 1000) - fade_out_s)
+            filter_complex = (
+                f"[1:a]aloop=loop=-1:size=2e+09,volume={bgm_volume},"
+                f"afade=t=in:d={fade_in_s}[bgm_raw];"
+                f"[0:a]asplit=2[voice][voice_key];"
+                f"[bgm_raw][voice_key]sidechaincompress="
+                f"threshold=0.02:ratio=8:attack=50:release=300:"
+                f"level_sc=1[bgm_ducked];"
+                f"[voice][bgm_ducked]amix=inputs=2:duration=first:"
+                f"dropout_transition=0[mixed];"
+                f"[mixed]afade=t=out:st={fade_out_start_s}:d={fade_out_s}[aout]"
+            )
+
+        cmd = [
+            self._ffmpeg_path, "-y",
+            "-i", str(video_path),
+            "-i", str(bgm_path),
+            "-filter_complex", filter_complex,
+            "-map", "0:v",
+            "-map", "[aout]",
+            "-c:v", "copy",
+            "-c:a", self.config.audio_codec,
+            "-shortest",
+            str(output_path),
+        ]
+
+        logger.info(f"Mixing BGM: {bgm_path.name} -> {output_path.name}")
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+
+            if proc.returncode != 0:
+                logger.error(f"BGM mix failed: {stderr.decode()[-500:]}")
+                return False
+
+            logger.info(f"BGM mixed successfully: {output_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"BGM mix error: {e}")
+            return False
+
+
 async def get_audio_duration_ms(audio_path: Path) -> int:
     """音声ファイルの長さを取得（ミリ秒）"""
     ffprobe = shutil.which("ffprobe")

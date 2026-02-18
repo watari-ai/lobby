@@ -8,7 +8,7 @@ import yaml
 from loguru import logger
 
 from .avatar import AvatarParts, LipsyncConfig
-from .pipeline import PipelineConfig, SubtitleConfig
+from .pipeline import BGMConfig, PipelineConfig, SubtitleConfig
 from .tts import TTSConfig
 from .video import VideoConfig
 
@@ -121,6 +121,20 @@ def build_subtitle_config(data: dict) -> SubtitleConfig:
     )
 
 
+def build_bgm_config(data: dict) -> BGMConfig:
+    """設定辞書からBGMConfigを生成"""
+    b = data.get("bgm", {})
+    path = b.get("path")
+    return BGMConfig(
+        enabled=b.get("enabled", bool(path)),
+        path=Path(path) if path else None,
+        volume=b.get("volume", 0.15),
+        duck_volume=b.get("duck_volume", 0.08),
+        fade_in_ms=b.get("fade_in_ms", 2000),
+        fade_out_ms=b.get("fade_out_ms", 3000),
+    )
+
+
 def build_pipeline_config(
     data: dict,
     avatar_parts: Optional[AvatarParts] = None,
@@ -144,4 +158,5 @@ def build_pipeline_config(
         avatar_parts=parts,
         output_dir=output_dir,
         subtitle=build_subtitle_config(data),
+        bgm=build_bgm_config(data),
     )

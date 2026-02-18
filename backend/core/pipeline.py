@@ -36,6 +36,17 @@ class SubtitleConfig:
 
 
 @dataclass
+class BGMConfig:
+    """BGM設定"""
+    enabled: bool = False
+    path: Optional[Path] = None       # BGMファイルパス
+    volume: float = 0.15              # BGM基本音量 (0.0-1.0)
+    duck_volume: float = 0.08         # 音声再生中のBGM音量
+    fade_in_ms: int = 2000            # フェードイン時間
+    fade_out_ms: int = 3000           # フェードアウト時間
+
+
+@dataclass
 class PipelineConfig:
     """パイプライン設定"""
     tts: TTSConfig
@@ -45,6 +56,7 @@ class PipelineConfig:
     output_dir: Path = Path("./output")
     background_image: Optional[Path] = None
     subtitle: SubtitleConfig = field(default_factory=SubtitleConfig)
+    bgm: BGMConfig = field(default_factory=BGMConfig)
 
     @classmethod
     def default(cls, avatar_parts: AvatarParts) -> "PipelineConfig":
@@ -225,6 +237,30 @@ class RecordingPipeline:
                 output_path.unlink()
                 burned_path.rename(output_path)
                 logger.info("Subtitles burned into video")
+
+        # BGMミックス
+        if self.config.bgm.enabled and self.config.bgm.path:
+            if progress_callback:
+                progress_callback(total, total, "Mixing BGM...")
+
+            bgm_output = output_path.with_stem(output_path.stem + "_bgm")
+            bgm_success = await self._composer.mix_bgm(
+                video_path=output_path,
+                bgm_path=self.config.bgm.path,
+                output_path=bgm_output,
+                bgm_volume=self.config.bgm.volume,
+                duck_volume=self.config.bgm.duck_volume,
+                fade_in_ms=self.config.bgm.fade_in_ms,
+                fade_out_ms=self.config.bgm.fade_out_ms,
+            )
+            if bgm_success:
+                output_path.unlink()
+                bgm_output.rename(output_path)
+                logger.info("BGM mixed into video")
+            else:
+                logger.warning("BGM mixing failed, continuing without BGM")
+                if bgm_output.exists():
+                    bgm_output.unlink()
 
         logger.info(f"✅ Video created: {output_path}")
         if subtitle_paths:

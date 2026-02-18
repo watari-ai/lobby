@@ -10,7 +10,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .core.avatar import AvatarParts, LipsyncConfig
 from .core.config import load_config, build_pipeline_config, build_tts_config
-from .core.pipeline import PipelineConfig, RecordingPipeline
+from .core.pipeline import BGMConfig, PipelineConfig, RecordingPipeline
 from .core.tts import TTSClient, TTSConfig
 from .core.video import VideoConfig
 from .modes.recording import RecordingMode, Script
@@ -136,6 +136,16 @@ def record_video(
         "--burn-subtitles/--no-burn-subtitles",
         help="字幕を動画に焼き込む",
     ),
+    bgm: Optional[Path] = typer.Option(
+        None,
+        "--bgm",
+        help="BGMファイルパス（自動ダッキング付き）",
+    ),
+    bgm_volume: Optional[float] = typer.Option(
+        None,
+        "--bgm-volume",
+        help="BGM音量 (0.0-1.0、デフォルト: 0.15)",
+    ),
 ):
     """台本から動画を生成（フルパイプライン）
 
@@ -174,6 +184,11 @@ def record_video(
                 data["output_dir"] = str(output_dir)
             if burn_subtitles is not None:
                 data.setdefault("subtitle", {})["burn_in"] = burn_subtitles
+            if bgm:
+                data.setdefault("bgm", {})["path"] = str(bgm)
+                data["bgm"]["enabled"] = True
+            if bgm_volume is not None:
+                data.setdefault("bgm", {})["volume"] = bgm_volume
 
             # アバターパーツ: CLI引数 > 設定ファイル
             if avatar_base:
@@ -218,6 +233,12 @@ def record_video(
                 mouth_open_l=mouth_open,
             )
 
+            bgm_config = BGMConfig(
+                enabled=bgm is not None,
+                path=bgm,
+                volume=bgm_volume or 0.15,
+            ) if bgm else BGMConfig()
+
             pipeline_config = PipelineConfig(
                 tts=TTSConfig(
                     base_url=tts_url or "http://localhost:8001",
@@ -228,6 +249,7 @@ def record_video(
                 avatar_parts=avatar_parts,
                 output_dir=output_dir or Path("./output"),
                 background_image=background,
+                bgm=bgm_config,
             )
 
         # パイプライン実行

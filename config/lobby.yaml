@@ -60,5 +60,14 @@ subtitle:
   margin_bottom: 60
   outline_width: 3
 
+# BGM設定
+bgm:
+  enabled: false
+  path: ""                   # BGMファイルパス
+  volume: 0.15               # BGM基本音量 (0.0-1.0)
+  duck_volume: 0.08          # 音声再生中のBGM音量（自動ダッキング）
+  fade_in_ms: 2000           # フェードイン時間
+  fade_out_ms: 3000          # フェードアウト時間
+
 # 出力ディレクトリ
 output_dir: ./output

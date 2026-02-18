@@ -1,7 +1,8 @@
 """TTS (Text-to-Speech) Client - Qwen3-TTS, MioTTS & OpenAI Compatible APIs"""
 
+import asyncio
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -18,6 +19,11 @@ class TTSConfig:
     api_key: str = "not-needed"
     model: str = ""
     response_format: str = "base64"  # MioTTS: "wav" or "base64" (base64 returns JSON)
+
+    # リトライ設定
+    max_retries: int = 3           # 最大リトライ回数
+    retry_base_delay: float = 1.0  # リトライ基本待機秒（指数バックオフ）
+    retry_max_delay: float = 30.0  # リトライ最大待機秒
 
     # 感情マッピング
     emotion_prompts: dict[str, str] | None = None
@@ -37,9 +43,59 @@ class TTSConfig:
 class TTSClient:
     """マルチプロバイダーTTS APIクライアント"""
 
+    # リトライ対象のHTTPステータスコード
+    _RETRYABLE_STATUS_CODES = {502, 503, 504, 429}
+
     def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig()
         self._client = httpx.AsyncClient(timeout=120.0)
+
+    async def _retry_with_backoff(self, func, description: str = "request"):
+        """指数バックオフ付きリトライラッパー
+
+        Args:
+            func: リトライ対象のasync callable
+            description: ログ用の説明
+
+        Returns:
+            funcの戻り値
+
+        Raises:
+            最後のリトライでも失敗した場合、元の例外を再送出
+        """
+        last_exc = None
+        for attempt in range(self.config.max_retries + 1):
+            try:
+                return await func()
+            except httpx.HTTPStatusError as e:
+                last_exc = e
+                if e.response.status_code not in self._RETRYABLE_STATUS_CODES:
+                    raise  # リトライ不可能なエラーは即座に送出
+                if attempt >= self.config.max_retries:
+                    raise
+                delay = min(
+                    self.config.retry_base_delay * (2 ** attempt),
+                    self.config.retry_max_delay,
+                )
+                logger.warning(
+                    f"TTS {description} failed (HTTP {e.response.status_code}), "
+                    f"retry {attempt + 1}/{self.config.max_retries} in {delay:.1f}s"
+                )
+                await asyncio.sleep(delay)
+            except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+                last_exc = e
+                if attempt >= self.config.max_retries:
+                    raise
+                delay = min(
+                    self.config.retry_base_delay * (2 ** attempt),
+                    self.config.retry_max_delay,
+                )
+                logger.warning(
+                    f"TTS {description} connection failed, "
+                    f"retry {attempt + 1}/{self.config.max_retries} in {delay:.1f}s"
+                )
+                await asyncio.sleep(delay)
+        raise last_exc  # unreachable but satisfies type checker
 
     async def synthesize(
         self,
@@ -58,9 +114,15 @@ class TTSClient:
             音声データ（bytes）
         """
         if self.config.provider == "miotts":
-            audio_data = await self._synthesize_miotts(text, emotion)
+            audio_data = await self._retry_with_backoff(
+                lambda: self._synthesize_miotts(text, emotion),
+                description=f"MioTTS ({text[:30]}...)" if len(text) > 30 else f"MioTTS ({text})",
+            )
         else:
-            audio_data = await self._synthesize_openai(text, emotion)
+            audio_data = await self._retry_with_backoff(
+                lambda: self._synthesize_openai(text, emotion),
+                description=f"OpenAI TTS ({text[:30]}...)" if len(text) > 30 else f"OpenAI TTS ({text})",
+            )
 
         if output_path:
             output_path.parent.mkdir(parents=True, exist_ok=True)

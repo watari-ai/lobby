@@ -277,6 +277,180 @@ class TestTTSClientHealthAndPresets:
             assert presets == []
 
 
+class TestTTSClientRetry:
+    """Retry with exponential backoff tests"""
+
+    @pytest.mark.asyncio
+    async def test_retry_on_502(self):
+        """502 Bad Gatewayでリトライする"""
+        config = TTSConfig(max_retries=2, retry_base_delay=0.01)
+        client = TTSClient(config)
+
+        # 1回目502、2回目成功
+        mock_response_fail = MagicMock()
+        mock_response_fail.status_code = 502
+        mock_response_fail.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "502", request=MagicMock(), response=mock_response_fail
+        )
+
+        audio_b64 = base64.b64encode(b"audio-data").decode()
+        mock_response_ok = MagicMock()
+        mock_response_ok.status_code = 200
+        mock_response_ok.raise_for_status.return_value = None
+        mock_response_ok.json.return_value = {"audio": audio_b64}
+
+        with patch.object(
+            client._client, "post",
+            new_callable=AsyncMock,
+            side_effect=[mock_response_fail, mock_response_ok],
+        ):
+            result = await client.synthesize("test")
+            assert result == b"audio-data"
+
+    @pytest.mark.asyncio
+    async def test_retry_on_503(self):
+        """503 Service Unavailableでリトライする"""
+        config = TTSConfig(max_retries=1, retry_base_delay=0.01)
+        client = TTSClient(config)
+
+        mock_response_fail = MagicMock()
+        mock_response_fail.status_code = 503
+        mock_response_fail.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "503", request=MagicMock(), response=mock_response_fail
+        )
+
+        audio_b64 = base64.b64encode(b"ok").decode()
+        mock_response_ok = MagicMock()
+        mock_response_ok.status_code = 200
+        mock_response_ok.raise_for_status.return_value = None
+        mock_response_ok.json.return_value = {"audio": audio_b64}
+
+        with patch.object(
+            client._client, "post",
+            new_callable=AsyncMock,
+            side_effect=[mock_response_fail, mock_response_ok],
+        ):
+            result = await client.synthesize("test")
+            assert result == b"ok"
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_400(self):
+        """400 Bad Requestではリトライしない"""
+        config = TTSConfig(max_retries=3, retry_base_delay=0.01)
+        client = TTSClient(config)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "400", request=MagicMock(), response=mock_response
+        )
+
+        with patch.object(
+            client._client, "post",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ):
+            with pytest.raises(httpx.HTTPStatusError):
+                await client.synthesize("test")
+
+    @pytest.mark.asyncio
+    async def test_retry_exhausted_raises(self):
+        """リトライ回数を使い切ったらエラーを送出"""
+        config = TTSConfig(max_retries=2, retry_base_delay=0.01)
+        client = TTSClient(config)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 502
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "502", request=MagicMock(), response=mock_response
+        )
+
+        with patch.object(
+            client._client, "post",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ):
+            with pytest.raises(httpx.HTTPStatusError):
+                await client.synthesize("test")
+
+    @pytest.mark.asyncio
+    async def test_retry_on_connection_error(self):
+        """接続エラーでリトライする"""
+        config = TTSConfig(max_retries=1, retry_base_delay=0.01)
+        client = TTSClient(config)
+
+        audio_b64 = base64.b64encode(b"recovered").decode()
+        mock_response_ok = MagicMock()
+        mock_response_ok.status_code = 200
+        mock_response_ok.raise_for_status.return_value = None
+        mock_response_ok.json.return_value = {"audio": audio_b64}
+
+        with patch.object(
+            client._client, "post",
+            new_callable=AsyncMock,
+            side_effect=[httpx.ConnectError("refused"), mock_response_ok],
+        ):
+            result = await client.synthesize("test")
+            assert result == b"recovered"
+
+    @pytest.mark.asyncio
+    async def test_retry_openai_provider(self):
+        """OpenAIプロバイダーでもリトライが機能する"""
+        config = TTSConfig(
+            provider="openai",
+            base_url="http://localhost:8880",
+            max_retries=1,
+            retry_base_delay=0.01,
+        )
+        client = TTSClient(config)
+
+        mock_response_fail = MagicMock()
+        mock_response_fail.status_code = 429
+        mock_response_fail.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "429", request=MagicMock(), response=mock_response_fail
+        )
+
+        mock_response_ok = MagicMock()
+        mock_response_ok.status_code = 200
+        mock_response_ok.raise_for_status.return_value = None
+        mock_response_ok.content = b"audio-bytes"
+
+        with patch.object(
+            client._client, "post",
+            new_callable=AsyncMock,
+            side_effect=[mock_response_fail, mock_response_ok],
+        ):
+            result = await client.synthesize("test")
+            assert result == b"audio-bytes"
+
+    @pytest.mark.asyncio
+    async def test_no_retry_when_max_retries_zero(self):
+        """max_retries=0の場合リトライしない"""
+        config = TTSConfig(max_retries=0, retry_base_delay=0.01)
+        client = TTSClient(config)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 502
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "502", request=MagicMock(), response=mock_response
+        )
+
+        with patch.object(
+            client._client, "post",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ):
+            with pytest.raises(httpx.HTTPStatusError):
+                await client.synthesize("test")
+
+    def test_retry_config_defaults(self):
+        """リトライ設定のデフォルト値"""
+        config = TTSConfig()
+        assert config.max_retries == 3
+        assert config.retry_base_delay == 1.0
+        assert config.retry_max_delay == 30.0
+
+
 class TestTTSClientLifecycle:
     """Context manager and close tests"""
 

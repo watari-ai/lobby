@@ -26,18 +26,23 @@ console = Console()
 @app.command()
 def record(
     script_path: Path = typer.Argument(..., help="台本ファイルパス (.txt, .json)"),
+    config_path: Optional[Path] = typer.Option(
+        None,
+        "--config", "-c",
+        help="設定ファイルパス（lobby.yaml）",
+    ),
     output_dir: Path = typer.Option(
         Path("./output"),
         "--output", "-o",
         help="出力ディレクトリ",
     ),
-    tts_url: str = typer.Option(
-        "http://localhost:8001",
+    tts_url: Optional[str] = typer.Option(
+        None,
         "--tts-url",
         help="TTS APIのベースURL（MioTTS: 8001, Qwen3: 8880/v1）",
     ),
-    voice: str = typer.Option(
-        "lobby",
+    voice: Optional[str] = typer.Option(
+        None,
         "--voice", "-v",
         help="使用する音声（MioTTSプリセット: lobby, jp_female等）",
     ),
@@ -54,11 +59,18 @@ def record(
         script = Script.from_file(script_path)
         console.print(f"[green]Loaded: {script.title} ({len(script.lines)} lines)[/green]")
 
-        # TTS設定
-        tts_config = TTSConfig(
-            base_url=tts_url,
-            voice=voice,
-        )
+        # TTS設定: config > CLI args > defaults
+        if config_path:
+            data = load_config(config_path)
+            tts_config = build_tts_config(data)
+        else:
+            tts_config = TTSConfig()
+
+        # CLI引数でオーバーライド
+        if tts_url:
+            tts_config.base_url = tts_url
+        if voice:
+            tts_config.voice = voice
 
         # 収録
         async with RecordingMode(tts_config=tts_config, output_dir=output_dir) as recorder:
@@ -82,12 +94,17 @@ def record(
 @app.command()
 def record_video(
     script_path: Path = typer.Argument(..., help="台本ファイルパス (.txt, .json)"),
-    avatar_base: Path = typer.Argument(..., help="アバターベース画像パス"),
-    mouth_closed: Path = typer.Argument(..., help="口閉じ画像パス"),
-    output_dir: Path = typer.Option(
-        Path("./output"),
+    avatar_base: Optional[Path] = typer.Argument(None, help="アバターベース画像パス（--config使用時は省略可）"),
+    mouth_closed: Optional[Path] = typer.Argument(None, help="口閉じ画像パス（--config使用時は省略可）"),
+    config_path: Optional[Path] = typer.Option(
+        None,
+        "--config", "-c",
+        help="設定ファイルパス（lobby.yaml）。指定時はアバター・TTS等を設定から読み込み",
+    ),
+    output_dir: Optional[Path] = typer.Option(
+        None,
         "--output", "-o",
-        help="出力ディレクトリ",
+        help="出力ディレクトリ（デフォルト: ./output）",
     ),
     mouth_open: Optional[Path] = typer.Option(
         None,
@@ -99,34 +116,39 @@ def record_video(
         "--background", "-bg",
         help="背景画像パス",
     ),
-    tts_url: str = typer.Option(
-        "http://localhost:8001",
+    tts_url: Optional[str] = typer.Option(
+        None,
         "--tts-url",
         help="TTS APIのベースURL（MioTTS: 8001, Qwen3: 8880/v1）",
     ),
-    voice: str = typer.Option(
-        "lobby",
+    voice: Optional[str] = typer.Option(
+        None,
         "--voice", "-v",
         help="使用する音声（MioTTSプリセット: lobby等）",
     ),
-    fps: int = typer.Option(
-        30,
+    fps: Optional[int] = typer.Option(
+        None,
         "--fps",
         help="フレームレート",
     ),
+    burn_subtitles: Optional[bool] = typer.Option(
+        None,
+        "--burn-subtitles/--no-burn-subtitles",
+        help="字幕を動画に焼き込む",
+    ),
 ):
-    """台本から動画を生成（フルパイプライン）"""
+    """台本から動画を生成（フルパイプライン）
+
+    使い方:
+      # 設定ファイルから（推奨）
+      lobby record-video script.txt --config config/lobby.yaml
+
+      # 引数で直接指定
+      lobby record-video script.txt avatar_base.png mouth_closed.png
+    """
 
     if not script_path.exists():
         console.print(f"[red]Error: Script not found: {script_path}[/red]")
-        raise typer.Exit(1)
-
-    if not avatar_base.exists():
-        console.print(f"[red]Error: Avatar base not found: {avatar_base}[/red]")
-        raise typer.Exit(1)
-
-    if not mouth_closed.exists():
-        console.print(f"[red]Error: Mouth closed image not found: {mouth_closed}[/red]")
         raise typer.Exit(1)
 
     async def _record_video():
@@ -135,27 +157,81 @@ def record_video(
         script = Script.from_file(script_path)
         console.print(f"[green]Loaded: {script.title} ({len(script.lines)} lines)[/green]")
 
-        # アバターパーツ設定
-        avatar_parts = AvatarParts(
-            base=avatar_base,
-            mouth_closed=mouth_closed,
-            mouth_open_s=mouth_open,
-            mouth_open_m=mouth_open,
-            mouth_open_l=mouth_open,
-        )
+        # 設定ファイルベース or CLI引数ベース
+        if config_path:
+            console.print(f"[cyan]Loading config: {config_path}[/cyan]")
+            data = load_config(config_path)
 
-        # パイプライン設定
-        config = PipelineConfig(
-            tts=TTSConfig(base_url=tts_url, voice=voice),
-            lipsync=LipsyncConfig(fps=fps),
-            video=VideoConfig(fps=fps),
-            avatar_parts=avatar_parts,
-            output_dir=output_dir,
-            background_image=background,
-        )
+            # CLI引数でオーバーライド
+            if tts_url:
+                data.setdefault("tts", {})["base_url"] = tts_url
+            if voice:
+                data.setdefault("tts", {})["voice"] = voice
+            if fps:
+                data.setdefault("lipsync", {})["fps"] = fps
+                data.setdefault("video", {})["fps"] = fps
+            if output_dir:
+                data["output_dir"] = str(output_dir)
+            if burn_subtitles is not None:
+                data.setdefault("subtitle", {})["burn_in"] = burn_subtitles
+
+            # アバターパーツ: CLI引数 > 設定ファイル
+            if avatar_base:
+                data.setdefault("avatar", {})["base"] = str(avatar_base)
+            if mouth_closed:
+                data.setdefault("avatar", {})["mouth_closed"] = str(mouth_closed)
+            if mouth_open:
+                data.setdefault("avatar", {})["mouth_open_s"] = str(mouth_open)
+                data.setdefault("avatar", {})["mouth_open_m"] = str(mouth_open)
+                data.setdefault("avatar", {})["mouth_open_l"] = str(mouth_open)
+
+            try:
+                pipeline_config = build_pipeline_config(data)
+            except ValueError as e:
+                console.print(f"[red]Config error: {e}[/red]")
+                console.print("[yellow]Hint: Set avatar.base and avatar.mouth_closed in config[/yellow]")
+                raise typer.Exit(1)
+
+            if background:
+                pipeline_config.background_image = background
+
+        else:
+            # 従来のCLI引数モード
+            if not avatar_base or not mouth_closed:
+                console.print("[red]Error: avatar_base and mouth_closed are required[/red]")
+                console.print("[yellow]Hint: Use --config to load from lobby.yaml[/yellow]")
+                raise typer.Exit(1)
+
+            if not avatar_base.exists():
+                console.print(f"[red]Error: Avatar base not found: {avatar_base}[/red]")
+                raise typer.Exit(1)
+
+            if not mouth_closed.exists():
+                console.print(f"[red]Error: Mouth closed image not found: {mouth_closed}[/red]")
+                raise typer.Exit(1)
+
+            avatar_parts = AvatarParts(
+                base=avatar_base,
+                mouth_closed=mouth_closed,
+                mouth_open_s=mouth_open,
+                mouth_open_m=mouth_open,
+                mouth_open_l=mouth_open,
+            )
+
+            pipeline_config = PipelineConfig(
+                tts=TTSConfig(
+                    base_url=tts_url or "http://localhost:8001",
+                    voice=voice or "lobby",
+                ),
+                lipsync=LipsyncConfig(fps=fps or 30),
+                video=VideoConfig(fps=fps or 30),
+                avatar_parts=avatar_parts,
+                output_dir=output_dir or Path("./output"),
+                background_image=background,
+            )
 
         # パイプライン実行
-        async with RecordingPipeline(config) as pipeline:
+        async with RecordingPipeline(pipeline_config) as pipeline:
             def progress_callback(current: int, total: int, status: str):
                 console.print(f"  [{current}/{total}] {status}")
 

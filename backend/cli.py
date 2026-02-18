@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .core.avatar import AvatarParts, LipsyncConfig
-from .core.config import load_config, build_pipeline_config, build_tts_config
+from .core.config import build_pipeline_config, build_tts_config, load_config
 from .core.pipeline import BGMConfig, PipelineConfig, RecordingPipeline
 from .core.tts import TTSClient, TTSConfig
 from .core.video import VideoConfig

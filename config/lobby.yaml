@@ -1,0 +1,64 @@
+# Lobby - 統合設定ファイル
+
+# サーバー設定
+server:
+  host: "0.0.0.0"
+  port: 8100
+
+# TTS設定
+tts:
+  provider: miotts          # miotts | qwen3-tts | openai
+  base_url: http://localhost:8001
+  voice: lobby              # MioTTSプリセットID or OpenAI voice
+  # model: qwen3-tts        # OpenAI互換API用
+  response_format: base64
+
+  # 感情マッピング（OpenAI互換TTS用）
+  emotion_prompts:
+    happy: "明るく楽しそうに"
+    sad: "しんみりと悲しげに"
+    excited: "テンション高く興奮して"
+    angry: "怒った声で"
+    surprised: "驚いた声で"
+    neutral: ""
+
+# アバター設定
+avatar:
+  # PNG立ち絵パーツ（パスはmodels/ディレクトリからの相対パス）
+  base: ""                  # ベース画像
+  mouth_closed: ""          # 口閉じ
+  mouth_open_s: ""          # 口開き（小）
+  mouth_open_m: ""          # 口開き（中）
+  mouth_open_l: ""          # 口開き（大）
+  eyes_open: ""             # 目開き
+  eyes_closed: ""           # 目閉じ（まばたき用）
+
+# リップシンク設定
+lipsync:
+  fps: 30
+  mouth_sensitivity: 0.5   # 0.0-1.0
+  blink_interval_ms: 3000
+  blink_duration_ms: 150
+
+# 動画出力設定
+video:
+  fps: 30
+  width: 1920
+  height: 1080
+  codec: libx264
+  crf: 23                   # 品質（0-51、小さいほど高品質）
+  preset: medium             # ultrafast | fast | medium | slow
+
+# 字幕設定
+subtitle:
+  enabled: true
+  burn_in: false             # 動画に焼き込むか
+  formats:
+    - srt
+  font_size: 48
+  font_name: "Noto Sans CJK JP"
+  margin_bottom: 60
+  outline_width: 3
+
+# 出力ディレクトリ
+output_dir: ./output

@@ -21,7 +21,7 @@ from ..core.tts import TTSConfig
 from ..core.video import VideoConfig
 from ..modes.recording import Script
 
-router = APIRouter(prefix="/recording", tags=["recording"])
+router = APIRouter(prefix="/api/recording", tags=["recording"])
 
 
 # --- Models ---

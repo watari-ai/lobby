@@ -80,7 +80,7 @@ app.include_router(recording_router)
 async def root():
     return {
         "name": "Lobby",
-        "version": "0.2.0",
+        "version": "0.8.0",
         "status": "running",
     }
 
@@ -96,7 +96,7 @@ if models_dir.exists():
     app.mount("/models", StaticFiles(directory=str(models_dir)), name="models")
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000):
+def run_server(host: str = "0.0.0.0", port: int = 8100):
     """開発サーバー起動"""
     import uvicorn
     uvicorn.run(app, host=host, port=port)

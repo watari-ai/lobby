@@ -18,7 +18,7 @@ from backend.core.vrm import (
     get_vrm_controller,
 )
 
-router = APIRouter(prefix="/vrm", tags=["vrm"])
+router = APIRouter(prefix="/api/vrm", tags=["vrm"])
 
 
 # Request/Response Models

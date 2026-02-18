@@ -21,7 +21,7 @@ from ..core.audio_manager import (
     SoundEffect,
 )
 
-router = APIRouter(prefix="/audio", tags=["audio"])
+router = APIRouter(prefix="/api/audio", tags=["audio"])
 
 # Global audio manager instance
 _audio_manager: AudioManager | None = None

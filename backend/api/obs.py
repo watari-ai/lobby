@@ -17,7 +17,7 @@ from ..integrations.obs import (
     OBSWebSocketClient,
 )
 
-router = APIRouter(prefix="/obs", tags=["OBS"])
+router = APIRouter(prefix="/api/obs", tags=["OBS"])
 
 # グローバルOBSクライアントインスタンス
 _obs_client: Optional[OBSWebSocketClient] = None

@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .core.avatar import AvatarParts, LipsyncConfig
+from .core.config import load_config, build_pipeline_config, build_tts_config
 from .core.pipeline import PipelineConfig, RecordingPipeline
 from .core.tts import TTSClient, TTSConfig
 from .core.video import VideoConfig
@@ -214,6 +215,30 @@ def tts_test(
             console.print(f"[green]✅ Saved: {output}[/green]")
 
     asyncio.run(_test())
+
+
+@app.command()
+def serve(
+    config_path: Optional[Path] = typer.Option(
+        None,
+        "--config", "-c",
+        help="設定ファイルパス（デフォルト: config/lobby.yaml）",
+    ),
+    host: str = typer.Option("0.0.0.0", "--host", help="バインドアドレス"),
+    port: int = typer.Option(8100, "--port", "-p", help="ポート番号"),
+):
+    """バックエンドAPIサーバーを起動"""
+    import uvicorn
+
+    data = load_config(config_path)
+    server_conf = data.get("server", {})
+    actual_host = server_conf.get("host", host)
+    actual_port = server_conf.get("port", port)
+
+    console.print(f"[cyan]Starting Lobby API server on {actual_host}:{actual_port}[/cyan]")
+
+    from .api.main import app as api_app
+    uvicorn.run(api_app, host=actual_host, port=actual_port)
 
 
 @app.command()

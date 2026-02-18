@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  lobby:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./output:/app/output
+      - ./config:/app/config
+      - ./models:/app/models
+    environment:
+      - LOBBY_HOST=0.0.0.0
+      - LOBBY_PORT=8000
+      - TTS_BASE_URL=${TTS_BASE_URL:-http://host.docker.internal:8880/v1}
+      - OPENCLAW_GATEWAY_URL=${OPENCLAW_GATEWAY_URL:-}
+      - OPENCLAW_API_KEY=${OPENCLAW_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

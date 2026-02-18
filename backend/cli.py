@@ -544,6 +544,115 @@ def doctor(
 
 
 @app.command()
+def export(
+    output_dir: Path = typer.Argument(..., help="収録出力ディレクトリ（record-videoの出力先）"),
+    export_dir: Optional[Path] = typer.Option(
+        None,
+        "--to", "-t",
+        help="エクスポート先（デフォルト: output_dir/export/）",
+    ),
+    title: Optional[str] = typer.Option(
+        None,
+        "--title",
+        help="動画タイトル（デフォルト: ディレクトリ名）",
+    ),
+    description: Optional[str] = typer.Option(
+        None,
+        "--description", "-d",
+        help="動画の説明文",
+    ),
+    tags: Optional[str] = typer.Option(
+        None,
+        "--tags",
+        help="カンマ区切りのタグ",
+    ),
+    include_srt: bool = typer.Option(True, "--srt/--no-srt", help="SRT字幕を含める"),
+    include_vtt: bool = typer.Option(False, "--vtt/--no-vtt", help="VTT字幕を含める"),
+):
+    """収録出力をYouTubeアップロード用にパッケージ化
+
+    動画・字幕・メタデータをまとめてエクスポートフォルダに出力します。
+
+    使い方:
+      lobby export output/自己紹介 --title "ロビィ自己紹介" --tags "VTuber,AI"
+    """
+    import json
+    import shutil
+    from datetime import datetime, timezone
+
+    if not output_dir.exists():
+        console.print(f"[red]Error: Directory not found: {output_dir}[/red]")
+        raise typer.Exit(1)
+
+    # 動画ファイルを探す
+    video_files = list(output_dir.glob("*.mp4"))
+    if not video_files:
+        console.print(f"[red]Error: No .mp4 files found in {output_dir}[/red]")
+        raise typer.Exit(1)
+
+    video_file = video_files[0]
+    video_title = title or output_dir.name.replace("_", " ")
+    dest = export_dir or (output_dir / "export")
+    dest.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"[bold cyan]エクスポート: {video_title}[/bold cyan]\n")
+
+    # 動画コピー
+    dest_video = dest / video_file.name
+    shutil.copy2(video_file, dest_video)
+    console.print(f"  [green]✓[/green] {video_file.name}")
+
+    # 字幕コピー
+    copied_subs = []
+    if include_srt:
+        for srt in output_dir.glob("*.srt"):
+            shutil.copy2(srt, dest / srt.name)
+            copied_subs.append(srt.name)
+            console.print(f"  [green]✓[/green] {srt.name}")
+    if include_vtt:
+        for vtt in output_dir.glob("*.vtt"):
+            shutil.copy2(vtt, dest / vtt.name)
+            copied_subs.append(vtt.name)
+            console.print(f"  [green]✓[/green] {vtt.name}")
+
+    # サムネイル
+    for thumb in output_dir.glob("thumbnail*"):
+        shutil.copy2(thumb, dest / thumb.name)
+        console.print(f"  [green]✓[/green] {thumb.name}")
+
+    # 動画ファイルサイズ
+    size_mb = dest_video.stat().st_size / (1024 * 1024)
+
+    # メタデータJSON
+    tag_list = [t.strip() for t in tags.split(",")] if tags else ["VTuber", "AI", "Lobby"]
+    metadata = {
+        "title": video_title,
+        "description": description or f"{video_title} — Lobby AI VTuberで制作",
+        "tags": tag_list,
+        "video": video_file.name,
+        "subtitles": copied_subs,
+        "file_size_mb": round(size_mb, 1),
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "generator": "Lobby AI VTuber",
+    }
+    meta_path = dest / "metadata.json"
+    meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    console.print(f"  [green]✓[/green] metadata.json")
+
+    # 説明文テキスト
+    desc_text = metadata["description"] + "\n\n"
+    desc_text += f"Tags: {', '.join(tag_list)}\n"
+    desc_text += f"Made with Lobby — https://github.com/watari-ai/lobby\n"
+    desc_path = dest / "description.txt"
+    desc_path.write_text(desc_text, encoding="utf-8")
+    console.print(f"  [green]✓[/green] description.txt")
+
+    file_count = len(list(dest.iterdir()))
+    console.print(f"\n[green]✅ エクスポート完了！[/green]")
+    console.print(f"   {dest} ({file_count} files, {size_mb:.1f} MB)")
+
+
+@app.command()
 def init(
     project_dir: Path = typer.Argument(
         Path("."),

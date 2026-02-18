@@ -263,6 +263,90 @@ class VideoComposer:
             return False
 
 
+    async def burn_subtitles(
+        self,
+        video_path: Path,
+        subtitle_path: Path,
+        output_path: Path,
+        font_size: int = 48,
+        font_name: str = "Noto Sans CJK JP",
+        margin_bottom: int = 60,
+        outline_width: int = 3,
+    ) -> bool:
+        """動画に字幕を焼き込む（SRT/ASS）
+
+        Args:
+            video_path: 入力動画パス
+            subtitle_path: 字幕ファイルパス（.srt）
+            output_path: 出力動画パス
+            font_size: フォントサイズ
+            font_name: フォント名
+            margin_bottom: 下マージン（ピクセル）
+            outline_width: 文字アウトライン幅
+
+        Returns:
+            成功したかどうか
+        """
+        if not self._ffmpeg_path:
+            logger.error("ffmpeg not available")
+            return False
+
+        if not video_path.exists():
+            logger.error(f"Video not found: {video_path}")
+            return False
+
+        if not subtitle_path.exists():
+            logger.error(f"Subtitle not found: {subtitle_path}")
+            return False
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # subtitles フィルタのスタイル指定
+        # パス内のコロンやバックスラッシュをエスケープ
+        sub_path_escaped = str(subtitle_path).replace("\\", "\\\\").replace(":", "\\:")
+        style = (
+            f"FontSize={font_size},"
+            f"FontName={font_name},"
+            f"MarginV={margin_bottom},"
+            f"OutlineColour=&H80000000,"
+            f"Outline={outline_width},"
+            f"PrimaryColour=&H00FFFFFF,"
+            f"Bold=1"
+        )
+
+        cmd = [
+            self._ffmpeg_path, "-y",
+            "-i", str(video_path),
+            "-vf", f"subtitles={sub_path_escaped}:force_style='{style}'",
+            "-c:v", self.config.codec,
+            "-crf", str(self.config.crf),
+            "-preset", self.config.preset,
+            "-c:a", "copy",
+            str(output_path),
+        ]
+
+        logger.info(f"Burning subtitles: {subtitle_path.name} -> {output_path.name}")
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+
+            if proc.returncode != 0:
+                logger.error(f"Subtitle burn failed: {stderr.decode()[-500:]}")
+                return False
+
+            logger.info(f"Subtitles burned successfully: {output_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Subtitle burn error: {e}")
+            return False
+
+
 async def get_audio_duration_ms(audio_path: Path) -> int:
     """音声ファイルの長さを取得（ミリ秒）"""
     ffprobe = shutil.which("ffprobe")

@@ -1,6 +1,6 @@
 """Recording Pipeline - 収録ワークフロー統合"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -15,8 +15,24 @@ from .avatar import (
     LipsyncConfig,
 )
 from .emotion import Emotion
+from .subtitle import SubtitleFormat, SubtitleGenerator, SubtitleTrack
 from .tts import TTSClient, TTSConfig
 from .video import VideoComposer, VideoConfig, get_audio_duration_ms
+
+
+@dataclass
+class SubtitleConfig:
+    """字幕設定"""
+    enabled: bool = True
+    burn_in: bool = False  # 動画に焼き込むか
+    formats: list[SubtitleFormat] = field(
+        default_factory=lambda: [SubtitleFormat.SRT]
+    )
+    speaker: Optional[str] = None
+    font_size: int = 48
+    font_name: str = "Noto Sans CJK JP"
+    margin_bottom: int = 60
+    outline_width: int = 3
 
 
 @dataclass
@@ -28,6 +44,7 @@ class PipelineConfig:
     avatar_parts: AvatarParts
     output_dir: Path = Path("./output")
     background_image: Optional[Path] = None
+    subtitle: SubtitleConfig = field(default_factory=SubtitleConfig)
 
     @classmethod
     def default(cls, avatar_parts: AvatarParts) -> "PipelineConfig":
@@ -160,6 +177,14 @@ class RecordingPipeline:
             result = await self.process_line(line, i, work_dir)
             results.append(result)
 
+        # 字幕を生成
+        subtitle_paths: dict[SubtitleFormat, Path] = {}
+        if self.config.subtitle.enabled:
+            if progress_callback:
+                progress_callback(total, total, "Generating subtitles...")
+
+            subtitle_paths = self._generate_subtitles(results, work_dir, script.title)
+
         # セグメントを動画に結合
         if progress_callback:
             progress_callback(total, total, "Composing video...")
@@ -180,8 +205,73 @@ class RecordingPipeline:
         if not success:
             raise RuntimeError("Failed to compose video")
 
+        # 字幕焼き込み
+        if self.config.subtitle.burn_in and SubtitleFormat.SRT in subtitle_paths:
+            if progress_callback:
+                progress_callback(total, total, "Burning in subtitles...")
+
+            burned_path = output_path.with_stem(output_path.stem + "_subtitled")
+            burn_success = await self._composer.burn_subtitles(
+                video_path=output_path,
+                subtitle_path=subtitle_paths[SubtitleFormat.SRT],
+                output_path=burned_path,
+                font_size=self.config.subtitle.font_size,
+                font_name=self.config.subtitle.font_name,
+                margin_bottom=self.config.subtitle.margin_bottom,
+                outline_width=self.config.subtitle.outline_width,
+            )
+            if burn_success:
+                # 焼き込み版を本体にリネーム
+                output_path.unlink()
+                burned_path.rename(output_path)
+                logger.info("Subtitles burned into video")
+
         logger.info(f"✅ Video created: {output_path}")
+        if subtitle_paths:
+            logger.info(f"📝 Subtitles: {list(subtitle_paths.values())}")
         return output_path
+
+    def _generate_subtitles(
+        self,
+        results: list[LineResult],
+        work_dir: Path,
+        title: str,
+    ) -> dict[SubtitleFormat, Path]:
+        """収録結果から字幕ファイルを生成"""
+        sub_config = self.config.subtitle
+        generator = SubtitleGenerator(speaker=sub_config.speaker)
+        track = generator.create_track(title)
+
+        current_time_ms = 0
+        gap_ms = 200  # セグメント間のギャップ
+
+        for result in results:
+            text = result.line.text.strip()
+            duration_ms = result.duration_ms if result.duration_ms > 0 else 2000
+
+            if text:
+                track.add_entry(
+                    text=text,
+                    start_ms=current_time_ms,
+                    end_ms=current_time_ms + duration_ms,
+                    speaker=sub_config.speaker,
+                )
+
+            current_time_ms += duration_ms
+            current_time_ms += int(result.line.wait_after * 1000)
+            current_time_ms += gap_ms
+
+        # 保存
+        output_paths: dict[SubtitleFormat, Path] = {}
+        base_name = title.replace(" ", "_")
+
+        for fmt in sub_config.formats:
+            out_path = work_dir / f"{base_name}.{fmt.value}"
+            track.save(out_path, fmt)
+            output_paths[fmt] = out_path
+
+        logger.info(f"Generated subtitles: {list(output_paths.values())}")
+        return output_paths
 
     async def close(self):
         """リソースを解放"""

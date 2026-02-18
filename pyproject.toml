@@ -1,6 +1,6 @@
 [project]
 name = "lobby"
-version = "1.0.0"
+version = "1.1.0"
 description = "AI VTuber配信・収録ソフト（OpenClaw連携）"
 readme = "README.md"
 license = { text = "MIT" }

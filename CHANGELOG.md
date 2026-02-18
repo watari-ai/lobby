@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-19
+
+### Added
+- **`lobby init`** - Project scaffolding command (config, sample script, directory structure)
+- **`lobby export`** - YouTube-ready packaging (video + subtitles + metadata.json + description.txt)
+- **`lobby validate`** - Script preview & validation (emotion distribution, estimated duration, warnings)
+- **`lobby doctor`** - Environment diagnostics (Python, ffmpeg, TTS, frontend dependencies)
+- **Docker support** - Dockerfile + docker-compose.yml
+- **Unified config loader** - `--config` flag for record/record-video commands
+- **BGM mixing** - Auto-ducking support during speech
+- **TTS retry** - Exponential backoff for transient errors
+- **Accurate audio duration** - ffprobe-based measurement
+
+### Fixed
+- Lint errors (ruff auto-fix)
+- Audio duration estimation (byte-based → ffprobe)
+- API route prefix consistency
+
+### Changed
+- Test suite expanded: 252 → 407 tests
+- README test badge updated
+
 ## [1.0.0] - 2026-02-13
 
 ### Added
@@ -146,5 +168,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Qwen3-TTS integration
 - Basic lipsync
 
-[Unreleased]: https://github.com/watari-ai/lobby/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/watari-ai/lobby/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/watari-ai/lobby/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/watari-ai/lobby/releases/tag/v1.0.0

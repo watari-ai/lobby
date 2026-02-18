@@ -9,6 +9,7 @@ import { AudioPanel } from './components/panels/AudioPanel';
 import { EffectsPanel } from './components/panels/EffectsPanel';
 import { SettingsPanel } from './components/panels/SettingsPanel';
 import { ChatPanel } from './components/panels/ChatPanel';
+import { RecordingPanel } from './components/panels/RecordingPanel';
 import Live2DViewer from './components/Live2DViewer';
 import SubtitleDisplay from './components/SubtitleDisplay';
 import StreamingIndicator from './components/StreamingIndicator';
@@ -24,6 +25,7 @@ const PANEL_TITLES: Record<PanelType, string> = {
   audio: '🎵 Audio',
   effects: '✨ Effects',
   chat: '💬 Chat',
+  recording: '🔴 Recording',
   settings: '⚙️ Settings',
 };
 
@@ -48,6 +50,8 @@ function App() {
         return <EffectsPanel />;
       case 'chat':
         return <ChatPanel />;
+      case 'recording':
+        return <RecordingPanel />;
       case 'settings':
         return <SettingsPanel />;
       default:

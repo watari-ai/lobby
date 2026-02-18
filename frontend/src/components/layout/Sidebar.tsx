@@ -7,10 +7,11 @@ import {
   Sparkles,
   Settings,
   MessageCircle,
+  Video,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-export type PanelType = 'camera' | 'background' | 'subtitle' | 'audio' | 'effects' | 'chat' | 'settings';
+export type PanelType = 'camera' | 'background' | 'subtitle' | 'audio' | 'effects' | 'chat' | 'recording' | 'settings';
 
 interface SidebarProps {
   activePanel: PanelType;
@@ -24,6 +25,7 @@ const PANELS: { id: PanelType; icon: React.ReactNode; label: string }[] = [
   { id: 'audio', icon: <Music className="w-5 h-5" />, label: 'Audio' },
   { id: 'effects', icon: <Sparkles className="w-5 h-5" />, label: 'Effects' },
   { id: 'chat', icon: <MessageCircle className="w-5 h-5" />, label: 'Chat' },
+  { id: 'recording', icon: <Video className="w-5 h-5" />, label: 'Record' },
   { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Settings' },
 ];
 

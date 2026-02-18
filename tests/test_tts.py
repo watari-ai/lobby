@@ -1,7 +1,6 @@
 """Tests for TTS (Text-to-Speech) Client"""
 
 import base64
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx

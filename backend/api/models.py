@@ -9,7 +9,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile, File as FastAPIFile
+from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import File as FastAPIFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -26,14 +27,14 @@ class MountRequest(BaseModel):
 
 
 class MountResponse(BaseModel):
-    modelUrl: str
+    modelUrl: str  # noqa: N815
     model3json: str
 
 
 class ModelInfo(BaseModel):
     path: str
     model3json: str
-    modelUrl: str
+    modelUrl: str  # noqa: N815
 
 
 @router.post("/mount", response_model=MountResponse)
@@ -62,7 +63,7 @@ async def mount_model(req: MountRequest):
 @router.post("/upload")
 async def upload_model(files: list[UploadFile] = FastAPIFile(...)):
     """Upload model files from browser, save to temp dir, and mount.
-    
+
     Each file's filename should be a relative path (e.g. "textures/foo.png").
     """
     global _mounted_dir, _model3_filename

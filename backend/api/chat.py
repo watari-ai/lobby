@@ -1,8 +1,8 @@
 """Chat proxy endpoint - フロントエンドからOpenClaw Gatewayへのプロキシ"""
 
-from pydantic import BaseModel
-from fastapi import APIRouter, HTTPException
 import httpx
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api", tags=["chat"])
 

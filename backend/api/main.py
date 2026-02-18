@@ -7,18 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .audio import router as audio_router
+from .chat import router as chat_router
 from .clip import router as clip_router
 from .highlight import router as highlight_router
 from .live import router as live_router
+from .models import router as models_router
 from .obs import router as obs_router
+from .recording import router as recording_router
 from .scene import router as scene_router
 from .subtitle import router as subtitle_router
 from .thumbnail import router as thumbnail_router
-from .models import router as models_router
 from .vrm import router as vrm_router
 from .websocket import router as ws_router
-from .chat import router as chat_router
-from .recording import router as recording_router
 
 # アプリケーション作成
 app = FastAPI(

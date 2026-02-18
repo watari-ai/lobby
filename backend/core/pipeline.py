@@ -15,7 +15,7 @@ from .avatar import (
     LipsyncConfig,
 )
 from .emotion import Emotion
-from .subtitle import SubtitleFormat, SubtitleGenerator, SubtitleTrack
+from .subtitle import SubtitleFormat, SubtitleGenerator
 from .tts import TTSClient, TTSConfig
 from .video import VideoComposer, VideoConfig, get_audio_duration_ms
 

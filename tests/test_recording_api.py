@@ -1,20 +1,17 @@
 """Tests for Recording API routes."""
 
 import json
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from backend.api.recording import (
+    AvatarSettings,
     RecordingRequest,
     TTSSettings,
-    AvatarSettings,
     VideoSettings,
-    ScriptInfo,
-    _parse_script,
     _build_avatar_parts,
+    _parse_script,
 )
-from backend.modes.recording import Script
-from backend.core.avatar import AvatarParts
 from backend.core.emotion import Emotion
 
 

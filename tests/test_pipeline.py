@@ -1,23 +1,20 @@
 """Tests for Recording Pipeline - subtitle integration"""
 
-import asyncio
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from backend.core.avatar import AvatarParts, LipsyncConfig
+from backend.core.emotion import Emotion
 from backend.core.pipeline import (
     LineResult,
     PipelineConfig,
     RecordingPipeline,
     SubtitleConfig,
 )
-from backend.core.avatar import AvatarParts, LipsyncConfig
-from backend.core.emotion import Emotion
 from backend.core.subtitle import SubtitleFormat
 from backend.core.tts import TTSConfig
 from backend.core.video import VideoConfig
-from backend.modes.recording import Script, ScriptLine
+from backend.modes.recording import ScriptLine
 
 
 @pytest.fixture

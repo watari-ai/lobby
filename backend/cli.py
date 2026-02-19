@@ -637,18 +637,18 @@ def export(
     }
     meta_path = dest / "metadata.json"
     meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    console.print(f"  [green]✓[/green] metadata.json")
+    console.print("  [green]✓[/green] metadata.json")
 
     # 説明文テキスト
     desc_text = metadata["description"] + "\n\n"
     desc_text += f"Tags: {', '.join(tag_list)}\n"
-    desc_text += f"Made with Lobby — https://github.com/watari-ai/lobby\n"
+    desc_text += "Made with Lobby — https://github.com/watari-ai/lobby\n"
     desc_path = dest / "description.txt"
     desc_path.write_text(desc_text, encoding="utf-8")
-    console.print(f"  [green]✓[/green] description.txt")
+    console.print("  [green]✓[/green] description.txt")
 
     file_count = len(list(dest.iterdir()))
-    console.print(f"\n[green]✅ エクスポート完了！[/green]")
+    console.print("\n[green]✅ エクスポート完了！[/green]")
     console.print(f"   {dest} ({file_count} files, {size_mb:.1f} MB)")
 
 
@@ -733,9 +733,9 @@ def init(
 
             output_dir: ./output
         """), encoding="utf-8")
-        console.print(f"  [green]✓[/green] config/lobby.yaml")
+        console.print("  [green]✓[/green] config/lobby.yaml")
     else:
-        console.print(f"  [yellow]⏭[/yellow] config/lobby.yaml (already exists)")
+        console.print("  [yellow]⏭[/yellow] config/lobby.yaml (already exists)")
 
     # サンプル台本
     sample_script = project_dir / "scripts" / "sample.txt"
@@ -745,22 +745,22 @@ def init(
             [excited] 今日はみんなに自己紹介するっす！
             [happy] よろしくお願いしますっす！
         """), encoding="utf-8")
-        console.print(f"  [green]✓[/green] scripts/sample.txt")
+        console.print("  [green]✓[/green] scripts/sample.txt")
     else:
-        console.print(f"  [yellow]⏭[/yellow] scripts/sample.txt (already exists)")
+        console.print("  [yellow]⏭[/yellow] scripts/sample.txt (already exists)")
 
     # .gitignore
     gitignore = project_dir / ".gitignore"
     if not gitignore.exists():
         gitignore.write_text("output/\n*.mp3\n*.mp4\n*.wav\n.DS_Store\n", encoding="utf-8")
-        console.print(f"  [green]✓[/green] .gitignore")
+        console.print("  [green]✓[/green] .gitignore")
 
-    console.print(f"\n[green]✅ プロジェクト初期化完了！[/green]")
-    console.print(f"\n[bold]次のステップ:[/bold]")
-    console.print(f"  1. models/ にアバター画像を配置")
-    console.print(f"  2. config/lobby.yaml を編集")
-    console.print(f"  3. lobby doctor --config config/lobby.yaml で環境チェック")
-    console.print(f"  4. lobby record-video scripts/sample.txt --config config/lobby.yaml")
+    console.print("\n[green]✅ プロジェクト初期化完了！[/green]")
+    console.print("\n[bold]次のステップ:[/bold]")
+    console.print("  1. models/ にアバター画像を配置")
+    console.print("  2. config/lobby.yaml を編集")
+    console.print("  3. lobby doctor --config config/lobby.yaml で環境チェック")
+    console.print("  4. lobby record-video scripts/sample.txt --config config/lobby.yaml")
 
 
 @app.command()

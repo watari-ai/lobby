@@ -665,7 +665,6 @@ def init(
     ),
 ):
     """新規プロジェクトをセットアップ（設定・ディレクトリ・サンプル台本を生成）"""
-    import shutil
     import textwrap
 
     project_dir = project_dir.resolve()

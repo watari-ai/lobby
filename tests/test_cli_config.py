@@ -1,6 +1,5 @@
 """CLI config integration tests"""
 
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -88,7 +87,7 @@ class TestRecordCommand:
         mock_mode.record_script = MagicMock(return_value=async_gen([]))
         mock_mode_cls.return_value = mock_mode
 
-        result = runner.invoke(app, [
+        runner.invoke(app, [
             "record", str(tmp_script),
             "--config", str(tmp_config),
             "--voice", "override_voice",

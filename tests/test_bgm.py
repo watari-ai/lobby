@@ -1,14 +1,13 @@
 """BGM mixing tests"""
 
-import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.core.video import VideoComposer, VideoConfig
-from backend.core.pipeline import BGMConfig, PipelineConfig
 from backend.core.config import build_bgm_config
+from backend.core.pipeline import BGMConfig
+from backend.core.video import VideoComposer
 
 
 class TestBGMConfig:

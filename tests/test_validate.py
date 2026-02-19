@@ -1,7 +1,6 @@
 """Tests for lobby validate command."""
 
 import tempfile
-from pathlib import Path
 
 from typer.testing import CliRunner
 

@@ -1,7 +1,5 @@
 """Tests for lobby init command."""
 
-import os
-from pathlib import Path
 
 from typer.testing import CliRunner
 

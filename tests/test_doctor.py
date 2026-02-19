@@ -1,6 +1,7 @@
 """Tests for lobby doctor command."""
 
 from typer.testing import CliRunner
+
 from backend.cli import app
 
 runner = CliRunner()
